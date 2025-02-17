@@ -1,0 +1,12 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: 2025.01.22
+_src_path: gh:scientific-python/cookie
+backend: hatch
+email: nick.smith@cern.ch
+full_name: Nick Smith
+license: BSD
+org: nsmith-
+project_name: rootfilespec
+project_short_description: A format specification for ROOT files
+url: https://github.com/nsmith-/rootfilespec
+vcs: true
