@@ -6,10 +6,9 @@ from typing import Protocol
 import cramjam  # type: ignore[import-not-found]
 
 from ..structutil import (
-    ReadContext,
+    ReadBuffer,
     ROOTSerializable,
     StructClass,
-    read_as,
     sfield,
     structify,
 )
@@ -80,14 +79,15 @@ class RCompressed(ROOTSerializable):
     payload: memoryview
 
     @classmethod
-    def read(cls, buffer: memoryview, context: ReadContext):
-        header, buffer = RCompressionHeader.read(buffer, context)
+    def read(cls, buffer: ReadBuffer):
+        header, buffer = RCompressionHeader.read(buffer)
         if header.fAlgorithm == b"L4":
-            checksum, buffer = read_as("4s", buffer)
+            checksum, buffer = buffer.consume(4)
         else:
             checksum = None
-        payload = buffer[: header.compressed_size()]
-        buffer = buffer[header.compressed_size() :]
+        # Not using .consume() to avoid copying the payload
+        nbytes = header.compressed_size()
+        payload, buffer = buffer.data[:nbytes], buffer[nbytes:]
         return cls(header, checksum, payload), buffer
 
     def decompress(self) -> memoryview:

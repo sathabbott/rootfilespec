@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..structutil import ReadContext, ROOTSerializable, read_as
+from ..structutil import ReadBuffer, ROOTSerializable
 
 
 @dataclass
@@ -10,9 +10,9 @@ class TString(ROOTSerializable):
     fString: bytes
 
     @classmethod
-    def read(cls, buffer: memoryview, _: ReadContext):
-        (length,), buffer = read_as(">B", buffer)
+    def read(cls, buffer: ReadBuffer):
+        (length,), buffer = buffer.unpack(">B")
         if length == 255:
-            (length,), buffer = read_as(">i", buffer)
-        data = buffer[:length].tobytes()
-        return cls(data), buffer[length:]
+            (length,), buffer = buffer.unpack(">i")
+        data, buffer = buffer.consume(length)
+        return cls(data), buffer

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
-from ..structutil import ReadContext, ROOTSerializable, read_as
+from ..structutil import ReadBuffer, ROOTSerializable
 
 
 @dataclass
@@ -12,7 +12,8 @@ class TUUID(ROOTSerializable):
     fUUID: UUID
 
     @classmethod
-    def read(cls, buffer: memoryview, _: ReadContext):
-        (fVersion,), buffer = read_as(">h", buffer)
-        uuid = UUID(bytes=buffer[:16].tobytes())
-        return cls(fVersion, uuid), buffer[16:]
+    def read(cls, buffer: ReadBuffer):
+        (fVersion,), buffer = buffer.unpack(">h")
+        data, buffer = buffer.consume(16)
+        uuid = UUID(bytes=data)
+        return cls(fVersion, uuid), buffer

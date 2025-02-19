@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import IntEnum
 
-from ..structutil import ReadContext, ROOTSerializable, read_as
+from ..structutil import ReadBuffer, ROOTSerializable
+from .TKey import DICTIONARY
 
 
 class constants(IntEnum):
@@ -37,37 +38,57 @@ class StreamHeader(ROOTSerializable):
 
     fByteCount: int
     fVersion: int | None
-    fClassRef: bytes | int | None
-    remaining: int
+    fClassName: bytes | None
+    fClassRef: int | None
 
     @classmethod
-    def read(cls, buffer: memoryview, _: ReadContext):
-        (fByteCount, tmp), buffer = read_as(">iH", buffer)
+    def read(cls, buffer: ReadBuffer):
+        (fByteCount, tmp), buffer = buffer.unpack(">iH")
         if fByteCount & constants.kByteCountMask:
             fByteCount &= ~constants.kByteCountMask
         else:
             msg = f"ByteCount mask not set: {fByteCount:08x}"
+            msg += f"\nfByteCount: {fByteCount}, tmp: {tmp:04x}"
+            msg += f"\nBuffer: {buffer}"
             raise ValueError(msg)
+        fVersion, fClassName, fClassRef = None, None, None
         if not (tmp & constants.kNotAVersion):
             fVersion = tmp
-            fClassRef = None
-            remaining = fByteCount - 2
         else:
             fVersion = None
-            (more,), buffer = read_as(">H", buffer)
+            (more,), buffer = buffer.unpack(">H")
             fClassInfo: int = (tmp << 16) | more
             if fClassInfo == constants.kNewClassTag:
-                fClassRef = b""
-                while buffer[0] != 0:
-                    fClassRef += bytes(buffer[:1])
-                    buffer = buffer[1:]
-                buffer = buffer[1:]  # skip the null terminator
-                # abspos = context.key_length
-                # we have read len(fClassRef) + 5 bytes at this point
-                # but ROOT seems to not count the null terminator in the byte count
-                remaining = fByteCount - len(fClassRef) - 4
+                fClassRef = buffer.relpos - 4
+                fClassName = b""
+                while True:
+                    chr, buffer = buffer.consume(1)
+                    if chr == b"\0":
+                        break
+                    fClassName += chr
+                buffer.local_refs[fClassRef] = fClassName
             else:
-                fClassRef = (fClassInfo & ~constants.kClassMask) - 2  # type: ignore[assignment]
-                # we have read 4 bytes at this point, but ROOT seems to think its 3
-                remaining = fByteCount - 3
-        return cls(fByteCount, fVersion, fClassRef, remaining), buffer
+                fClassRef = (fClassInfo & ~constants.kClassMask) - 2
+                fClassName = buffer.local_refs.get(fClassRef, None)
+                if fClassName is None:
+                    msg = f"ClassRef {fClassRef} not found in buffer local_refs"
+                    raise ValueError(msg)
+        return cls(fByteCount, fVersion, fClassName, fClassRef), buffer
+
+
+def read_streamed_item(buffer: ReadBuffer) -> tuple[ROOTSerializable, ReadBuffer]:
+    # Read ahead the stream header to determine the type of the object
+    itemheader, _ = StreamHeader.read(buffer)
+    if itemheader.fClassName not in DICTIONARY:
+        msg = f"Unknown class name: {itemheader.fClassName}"
+        msg += f"\nStreamHeader: {itemheader}"
+        raise ValueError(msg)
+    expected_position = buffer.relpos + 4 + itemheader.fByteCount
+    # Now actually read the object
+    item, buffer = DICTIONARY[itemheader.fClassName].read(buffer)
+    if buffer.relpos != expected_position:
+        msg = f"Expected position {expected_position} but got {buffer.relpos}"
+        msg += f"\nItem: {item}"
+        msg += f"\nBuffer: {buffer}"
+        raise ValueError(msg)
+    return item, buffer

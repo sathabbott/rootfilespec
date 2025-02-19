@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
 
 from ..structutil import (
-    ReadContext,
+    DataFetcher,
+    ReadBuffer,
     ROOTSerializable,
     StructClass,
-    read_as,
     sfield,
     structify,
 )
@@ -67,16 +66,16 @@ class TKey(ROOTSerializable):
     fTitle: TString
 
     @classmethod
-    def read(cls, buffer: memoryview, context: ReadContext):
+    def read(cls, buffer: ReadBuffer):
         initial_size = len(buffer)
-        header, buffer = TKey_header.read(buffer, context)
+        header, buffer = TKey_header.read(buffer)
         if header.fVersion < 1000:
-            (fSeekKey, fSeekPdir), buffer = read_as(">ii", buffer)
+            (fSeekKey, fSeekPdir), buffer = buffer.unpack(">ii")
         else:
-            (fSeekKey, fSeekPdir), buffer = read_as(">qq", buffer)
-        fClassName, buffer = TString.read(buffer, context)
-        fName, buffer = TString.read(buffer, context)
-        fTitle, buffer = TString.read(buffer, context)
+            (fSeekKey, fSeekPdir), buffer = buffer.unpack(">qq")
+        fClassName, buffer = TString.read(buffer)
+        fName, buffer = TString.read(buffer)
+        fTitle, buffer = TString.read(buffer)
         if len(buffer) != initial_size - header.fKeylen:
             raise ValueError("TKey.read: buffer size mismatch")  # noqa: EM101
         return cls(header, fSeekKey, fSeekPdir, fClassName, fName, fTitle), buffer
@@ -87,36 +86,43 @@ class TKey(ROOTSerializable):
 
     def read_object(
         self,
-        data_fetcher: Callable[[int, int], memoryview],
+        fetch_data: DataFetcher,
         objtype: type[ROOTSerializable] | None = None,
     ) -> ROOTSerializable:
-        context = ReadContext(key_length=self.header.fKeylen)
-        buffer = data_fetcher(
+        buffer = fetch_data(
             self.fSeekKey + self.header.fKeylen,
             self.header.fNbytes - self.header.fKeylen,
         )
         compressed = None
         if len(buffer) != self.header.fObjlen:
-            compressed, buffer = RCompressed.read(buffer, context)
+            compressed, buffer = RCompressed.read(buffer)
             if compressed.header.uncompressed_size() != self.header.fObjlen:
-                msg = f"TKey.read_object: uncompressed size mismatch. {compressed.header.uncompressed_size()} != {self.header.fObjlen}"
+                msg = "TKey.read_object: uncompressed size mismatch. "
+                msg += (
+                    f"{compressed.header.uncompressed_size()} != {self.header.fObjlen}"
+                )
+                msg += "\nThis might be expected for very large TBaskets"
+
                 raise ValueError(msg)
             if buffer:
                 msg = f"TKey.read_object: buffer not empty after reading compressed object. {buffer=}"
                 raise ValueError(msg)
-            buffer = compressed.decompress()
+            buffer = ReadBuffer(
+                compressed.decompress(),
+                abspos=None,
+                relpos=self.header.fKeylen,
+            )
         if objtype is not None:
             typename = objtype.__name__.encode("ascii")
-            obj, buffer = objtype.read(buffer, context=context)
+            obj, buffer = objtype.read(buffer)
         else:
             typename = self.fClassName.fString
-            obj, buffer = DICTIONARY[typename].read(buffer, context=context)
+            obj, buffer = DICTIONARY[typename].read(buffer)
         if buffer:
             msg = f"TKey.read_object: buffer not empty after reading object of type {typename!r}."
             msg += f"\n{self=}"
             msg += f"\n{compressed=}"
             msg += f"\n{obj=}"
-            msg += f"\nlen(buffer)={len(buffer)}"
-            msg += f"\nbuffer[:100]={buffer[:100].tobytes()!r}"
+            msg += f"\nBuffer: {buffer}"
             raise ValueError(msg)
         return obj

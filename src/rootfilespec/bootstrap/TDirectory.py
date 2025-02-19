@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Callable
 
 from ..structutil import (
-    ReadContext,
+    DataFetcher,
+    ReadBuffer,
     ROOTSerializable,
     StructClass,
-    read_as,
     sfield,
     structify,
 )
@@ -83,23 +82,23 @@ class TDirectory(ROOTSerializable):
     fUUID: TUUID
 
     @classmethod
-    def read(cls, buffer: memoryview, context: ReadContext):
-        header, buffer = TDirectory_header_v622.read(buffer, context)
+    def read(cls, buffer: ReadBuffer):
+        header, buffer = TDirectory_header_v622.read(buffer)
         if header.fVersion < 1000:
-            (fSeekDir, fSeekParent, fSeekKeys), buffer = read_as(">iii", buffer)
+            (fSeekDir, fSeekParent, fSeekKeys), buffer = buffer.unpack(">iii")
         else:
-            (fSeekDir, fSeekParent, fSeekKeys), buffer = read_as(">qqq", buffer)
-        fUUID, buffer = TUUID.read(buffer, context)
+            (fSeekDir, fSeekParent, fSeekKeys), buffer = buffer.unpack(">qqq")
+        fUUID, buffer = TUUID.read(buffer)
         if header.fVersion < 1000:
             # Extra space to allow seeks to become 64 bit without moving this header
             buffer = buffer[12:]
         return cls(header, fSeekDir, fSeekParent, fSeekKeys, fUUID), buffer
 
-    def get_KeyList(self, data_fetcher: Callable[[int, int], memoryview]) -> TKeyList:
-        buffer = data_fetcher(
+    def get_KeyList(self, fetch_data: DataFetcher) -> TKeyList:
+        buffer = fetch_data(
             self.fSeekKeys, self.header.fNbytesName + self.header.fNbytesKeys
         )
-        key, _ = TKey.read(buffer, ReadContext(0))
+        key, _ = TKey.read(buffer)
         if key.fSeekKey != self.fSeekKeys:
             msg = f"TDirectory.read_keylist: fSeekKey mismatch {key.fSeekKey} != {self.fSeekKeys}"
             raise ValueError(msg)
@@ -126,23 +125,23 @@ class TKeyList(ROOTSerializable, Mapping[str, TKey]):
     padding: bytes
 
     @classmethod
-    def read(cls, buffer: memoryview, context: ReadContext):
-        (nKeys,), buffer = read_as(">i", buffer)
+    def read(cls, buffer: ReadBuffer):
+        (nKeys,), buffer = buffer.unpack(">i")
         keys: list[TKey] = []
         while len(keys) < nKeys:
-            key, buffer = TKey.read(buffer, context)
+            key, buffer = TKey.read(buffer)
             keys.append(key)
         # suspicion: there will be 8*nshort trailing bytes
         # corresponding to padding in case seeks need to be 64 bit
         npad = 8 * sum(1 for k in keys if k.is_short())
-        padding, buffer = buffer[:npad], buffer[npad:]
+        padding, buffer = buffer.consume(npad)
         return cls(keys, padding), buffer
 
     def __len__(self):
         return len(self.fKeys)
 
     def __iter__(self):
-        return iter(self.fKeys)
+        return (key.fName.fString.decode("ascii") for key in self.fKeys)
 
     def __getitem__(self, key: str):
         bkey = key.encode("ascii")

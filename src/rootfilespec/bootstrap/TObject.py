@@ -4,15 +4,15 @@ from dataclasses import dataclass
 from enum import IntEnum
 
 from ..structutil import (
-    ReadContext,
+    ReadBuffer,
     ROOTSerializable,
     StructClass,
-    read_as,
     sfield,
     structify,
 )
 from .streamedobject import StreamHeader
 from .TKey import DICTIONARY
+from .TString import TString
 
 
 class fBits(IntEnum):
@@ -76,13 +76,32 @@ class TObject(ROOTSerializable):
     pidf: int | None
 
     @classmethod
-    def read(cls, buffer: memoryview, context: ReadContext):
-        sheader, buffer = StreamHeader.read(buffer, context)
-        header, buffer = TObject_header.read(buffer, context)
+    def read(cls, buffer: ReadBuffer):
+        sheader, buffer = StreamHeader.read(buffer)
+        header, buffer = TObject_header.read(buffer)
         pidf = None
         if header.is_referenced():
-            (pidf,), buffer = read_as(">H", buffer)
+            (pidf,), buffer = buffer.unpack(">H")
         return cls(sheader, header, pidf), buffer
 
 
 DICTIONARY[b"TObject"] = TObject
+
+
+@dataclass
+class TNamed(ROOTSerializable):
+    """Format for TNamed class.
+
+    Attributes:
+        b_object (TObject): TObject base class.
+        fName (TString): Name of the object.
+        fTitle (TString): Title of the object.
+    """
+
+    sheader: StreamHeader
+    b_object: TObject
+    fName: TString
+    fTitle: TString
+
+
+DICTIONARY[b"TNamed"] = TNamed

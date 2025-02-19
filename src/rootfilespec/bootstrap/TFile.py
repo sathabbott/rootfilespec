@@ -3,10 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..structutil import (
-    ReadContext,
+    DataFetcher,
+    ReadBuffer,
     ROOTSerializable,
     StructClass,
-    read_as,
     sfield,
     structify,
 )
@@ -17,7 +17,7 @@ from .TString import TString
 from .TUUID import TUUID
 
 
-@dataclass
+@dataclass(order=True)
 class VersionInfo(ROOTSerializable):
     major: int
     minor: int
@@ -25,8 +25,8 @@ class VersionInfo(ROOTSerializable):
     large: bool = False  # File is larger than 32bit file limit (2GB)
 
     @classmethod
-    def read(cls, buffer: memoryview, _: ReadContext):
-        (version,), buffer = read_as(">i", buffer)
+    def read(cls, buffer: ReadBuffer):
+        (version,), buffer = buffer.unpack(">i")
         return cls(
             major=version // 10_000 % 100,
             minor=version // 100 % 100,
@@ -132,31 +132,28 @@ class ROOTFile(ROOTSerializable):
     padding: bytes
 
     @classmethod
-    def read(cls, buffer: memoryview, context: ReadContext):
-        initial_size = len(buffer)
-        (magic,), buffer = read_as("4s", buffer)
+    def read(cls, buffer: ReadBuffer):
+        (magic,), buffer = buffer.unpack("4s")
         if magic != b"root":
             msg = f"ROOTFile.read: magic is not 'root': {magic!r}"
             raise ValueError(msg)
-        fVersion, buffer = VersionInfo.read(buffer, context)
-        if fVersion.major <= 3 and fVersion.minor <= 0 and fVersion.cycle <= 2:
-            header, buffer = ROOTFile_header_v302.read(buffer, context)
-            uuid, buffer = read_as("16s", buffer)
+        fVersion, buffer = VersionInfo.read(buffer)
+        if fVersion <= VersionInfo(6, 2, 2):
+            header, buffer = ROOTFile_header_v302.read(buffer)
+            uuid, buffer = buffer.consume(16)
         elif not fVersion.large:
-            header, buffer = ROOTFile_header_v622_small.read(buffer, context)  # type: ignore[assignment]
-            uuid, buffer = TUUID.read(buffer, context)
+            header, buffer = ROOTFile_header_v622_small.read(buffer)  # type: ignore[assignment]
+            uuid, buffer = TUUID.read(buffer)
         else:
-            header, buffer = ROOTFile_header_v622_large.read(buffer, context)  # type: ignore[assignment]
-            uuid, buffer = TUUID.read(buffer, context)
-        consumed = initial_size - len(buffer)
-        padding = buffer[: header.fBEGIN - consumed].tobytes()
-        buffer = buffer[header.fBEGIN - consumed :]
+            header, buffer = ROOTFile_header_v622_large.read(buffer)  # type: ignore[assignment]
+            uuid, buffer = TUUID.read(buffer)
+        padding, buffer = buffer.consume(header.fBEGIN - buffer.relpos)
         return cls(magic, fVersion, header, uuid, padding), buffer
 
-    def get_TFile(self, fetch_data) -> TFile:
+    def get_TFile(self, fetch_data: DataFetcher) -> TFile:
         """Get the TFile object (root directory) from the file."""
         buffer = fetch_data(self.header.fBEGIN, self.header.fNbytesName)
-        key, buffer = TKey.read(buffer, ReadContext(0))
+        key, buffer = TKey.read(buffer)
         if key.fSeekKey != self.header.fBEGIN:
             msg = f"ROOTFile.read_rootkey: key.fSeekKey != self.header.fBEGIN: {key.fSeekKey} != {self.header.fBEGIN}"
             raise ValueError(msg)
@@ -165,9 +162,9 @@ class ROOTFile(ROOTSerializable):
             raise ValueError(msg)
         return key.read_object(fetch_data)  # type: ignore[no-any-return]
 
-    def get_StreamerInfo(self, fetch_data) -> TList:
+    def get_StreamerInfo(self, fetch_data: DataFetcher) -> TList:
         buffer = fetch_data(self.header.fSeekInfo, self.header.fNbytesInfo)
-        key, _ = TKey.read(buffer, ReadContext(0))
+        key, _ = TKey.read(buffer)
         if key.fSeekKey != self.header.fSeekInfo:
             msg = f"ROOTFile.get_StreamerInfo: fSeekKey != fSeekInfo: {key.fSeekKey} != {self.header.fSeekInfo}"
             raise ValueError(msg)
