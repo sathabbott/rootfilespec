@@ -12,6 +12,8 @@ from .TStreamerInfo import (
     TStreamerString,
 )
 from .TString import TString
+from .RNTuple import RNTuple
+from .RNTupleAnchor import RNTupleAnchor
 
 __all__ = [
     "ROOTFile",
@@ -28,4 +30,6 @@ __all__ = [
     "TStreamerInfo",
     "TStreamerString",
     "TString",
+    "RNTuple",
+    "RNTupleAnchor",
 ]

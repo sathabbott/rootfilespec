@@ -61,10 +61,21 @@ if __name__ == "__main__":
         # Get TStreamerInfo (List of classes used in the file)
         streamerinfo = file.get_StreamerInfo(fetch_data)
 
-        # tree = keylist["Events"].read_object(fetch_data, )
-        # print(tree)
+        # Get RNTuple Info
+        # Only RNTuple Anchor TKeys are visible (i.e. in TKeyList); ClassName = ROOT::RNTuple
+        # anchor_keylist = [key for key in keylist.values() if key.fClassName.fString == b'ROOT::RNTuple']
+        for name, key in keylist.items():
+            # Check for RNTuple Anchors
+            if key.fClassName.fString == b"ROOT::RNTuple":
+                print(f"\nRNTuple Anchor Key: {name}")
+                # print(f"\t{key}")
+                # Get RNTuple Anchor Object
+                rntuple = key.read_object(fetch_data)
+                # print(f"\tRNTupleAnchor: {rntuple.anchor}")
+
     print(f"\n\033[1;32mClosing '{path}'\n\033[0m")
-    
+    # quit()
+
     # abbott: Current TStreamer code doesn't handle RNTuple correctly. 
     #           ignore for now, not needed to progress on project.
     print(f"TStreamerInfo Summary:")
@@ -72,4 +83,6 @@ if __name__ == "__main__":
         if isinstance(item, TStreamerInfo):
             print(f"\t{item.b_named.fName.fString}")
             for obj in item.fObjects.objects:
-                print(f"\t\t{obj.b_element.b_named.fName.fString}: {obj.b_element.b_named.b_object}")
+                # print(f"\t\t{obj.b_element.b_named.fName.fString}: {obj.b_element.b_named.b_object}")
+                print(f"\t\t{obj.b_element.b_named.fName.fString}")
+                
