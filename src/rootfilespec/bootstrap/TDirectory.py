@@ -100,8 +100,9 @@ class TDirectory(ROOTSerializable):
         return cls(header, fSeekDir, fSeekParent, fSeekKeys, fUUID), buffer
 
     def get_KeyList(self, fetch_data: DataFetcher) -> TKeyList:
-        # The TKeyList for a TDirectory is a TList containing all the (visible) TKeys
+        # The TKeyList for a TDirectory contains all the (visible) TKeys
         #   For RNTuples, it will only contain the RNTuple Anchor TKey(s)
+        # Binary Spec: https://root.cern.ch/doc/master/keyslist.html
         buffer = fetch_data(
             self.fSeekKeys, self.header.fNbytesName + self.header.fNbytesKeys
         )
@@ -128,28 +129,33 @@ DICTIONARY[b"TDirectory"] = TDirectory
 
 @dataclass
 class TKeyList(ROOTSerializable, Mapping[str, TKey]):
-    # The TKeyList for a TDirectory is a TList containing all the (visible) TKeys
+    # The TKeyList for a TDirectory contains all the (visible) TKeys
     #   For RNTuples, it will only contain the RNTuple Anchor TKey(s)    
+    # Binary Spec: https://root.cern.ch/doc/master/keyslist.html
     
     # Fields for a TKeyList
     fKeys: list[TKey]
-    padding: bytes
+    # padding: bytes
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        print(f"\033[1;36m\tReading TKeyList, len(buffer)={buffer.__len__()}\033[0m")
+        print(f"\033[1;36m\tReading TKeyList; {buffer.info()}\033[0m")
 
-        (nKeys,), buffer = buffer.unpack(">i")
+        (nKeys,), buffer = buffer.unpack(">I")
         keys: list[TKey] = []
         while len(keys) < nKeys:
             key, buffer = TKey.read(buffer)
             keys.append(key)
-        # suspicion: there will be 8*nshort trailing bytes
-        # corresponding to padding in case seeks need to be 64 bit
-        npad = 8 * sum(1 for k in keys if k.is_short())
-        padding, buffer = buffer.consume(npad)
+        # abbott: this code crashes the reader in my use case, but fixes a bug in Nick's use case
+        #          My use case: TKeyList has one entry, a short key
+        #          Nick's use case: TKeyList has multiple entries, 1 short key + 4-5 long keys
+        # # suspicion: there will be 8*nshort trailing bytes
+        # # corresponding to padding in case seeks need to be 64 bit
+        # npad = 8 * sum(1 for k in keys if k.is_short())
+        # padding, buffer = buffer.consume(npad)
         print(f"\033[1;32m\tDone reading TKeyList\n\033[0m")
-        return cls(keys, padding), buffer
+        # return cls(keys, padding), buffer
+        return cls(keys), buffer
 
     def __len__(self):
         return len(self.fKeys)

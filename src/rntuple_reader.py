@@ -53,10 +53,10 @@ if __name__ == "__main__":
         print(f"End of file at {file.header.fEND}")
 
         # Get TKeyList (List of all TKeys in the TDirectory)
-        # abbott pick up here and figure out why it fails during TKeyList
         keylist = tfile.get_KeyList(fetch_data)
+        print(f"TKey List Summary:")
         for name, key in keylist.items():
-            print(f"{name} ({key.fClassName.fString})")
+            print(f"\t{name} ({key.fClassName.fString})")
 
         streamerinfo = file.get_StreamerInfo(fetch_data)
 
