@@ -68,8 +68,11 @@ class TKey(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        initial_size = len(buffer)
+        # print(f"\tReading TKey from buffer {buffer}")
+        print(f"\033[1;36m\tReading TKey, len(buffer)={buffer.__len__()}\033[0m")
+        initial_size = buffer.__len__()
         header, buffer = TKey_header.read(buffer)
+        print(f"\t\t{header}")
         if header.fVersion < 1000:
             (fSeekKey, fSeekPdir), buffer = buffer.unpack(">II")
         else:
@@ -77,8 +80,10 @@ class TKey(ROOTSerializable):
         fClassName, buffer = TString.read(buffer)
         fName, buffer = TString.read(buffer)
         fTitle, buffer = TString.read(buffer)
-        if len(buffer) != initial_size - header.fKeylen:
+        # print(f"\t\tTKey initial_size={initial_size} header.fKeylen={header.fKeylen} len(buffer)={buffer.__len__()}")
+        if buffer.__len__() != initial_size - header.fKeylen:
             raise ValueError("TKey.read: buffer size mismatch")  # noqa: EM101
+        print(f"\033[1;32m\tDone reading TKey\n\033[0m")
         return cls(header, fSeekKey, fSeekPdir, fClassName, fName, fTitle), buffer
 
     def is_short(self) -> bool:
@@ -90,10 +95,12 @@ class TKey(ROOTSerializable):
         fetch_data: DataFetcher,
         objtype: type[ROOTSerializable] | None = None,
     ) -> ROOTSerializable:
+
         buffer = fetch_data(
             self.fSeekKey + self.header.fKeylen, # Points to the start of the object data
             self.header.fNbytes - self.header.fKeylen, # The size of the object data
         )
+        print(f"\033[1;36m\tReading TObject, len(buffer)={buffer.__len__()}\033[0m")
         compressed = None
         # fObjlen is the number of bytes of uncompressed data
         # The length of the buffer is the number of bytes of compressed data
@@ -129,4 +136,5 @@ class TKey(ROOTSerializable):
             msg += f"\n{obj=}"
             msg += f"\nBuffer: {buffer}"
             raise ValueError(msg)
+        print(f"\033[1;32m\tDone reading TObject of type {typename}\n\033[0m")
         return obj

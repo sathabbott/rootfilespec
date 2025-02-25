@@ -85,7 +85,9 @@ class TDirectory(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
+        print(f"\033[1;36m\t\tReading TDirectory, len(buffer)={buffer.__len__()}\033[0m")
         header, buffer = TDirectory_header_v622.read(buffer)
+        print(f"\t\t\t{header}")
         if header.fVersion < 1000:
             (fSeekDir, fSeekParent, fSeekKeys), buffer = buffer.unpack(">iii")
         else:
@@ -94,6 +96,7 @@ class TDirectory(ROOTSerializable):
         if header.fVersion < 1000:
             # Extra space to allow seeks to become 64 bit without moving this header
             buffer = buffer[12:]
+        print(f"\033[1;32m\t\tDone reading TDirectory\n\033[0m")
         return cls(header, fSeekDir, fSeekParent, fSeekKeys, fUUID), buffer
 
     def get_KeyList(self, fetch_data: DataFetcher) -> TKeyList:
@@ -112,11 +115,11 @@ class TDirectory(ROOTSerializable):
 
         def fetch_cached(seek: int, size: int):
             seek -= self.fSeekKeys
-            if seek + size <= len(buffer):
+            if seek + size <= buffer.__len__():
                 return buffer[seek : seek + size]
             msg = f"TDirectory.read_keylist: fetch_cached: {seek=} {size=} out of range"
             raise ValueError(msg)
-
+        
         return key.read_object(fetch_cached, objtype=TKeyList)  # type: ignore[no-any-return]
 
 
@@ -134,6 +137,8 @@ class TKeyList(ROOTSerializable, Mapping[str, TKey]):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
+        print(f"\033[1;36m\tReading TKeyList, len(buffer)={buffer.__len__()}\033[0m")
+
         (nKeys,), buffer = buffer.unpack(">i")
         keys: list[TKey] = []
         while len(keys) < nKeys:
@@ -143,6 +148,7 @@ class TKeyList(ROOTSerializable, Mapping[str, TKey]):
         # corresponding to padding in case seeks need to be 64 bit
         npad = 8 * sum(1 for k in keys if k.is_short())
         padding, buffer = buffer.consume(npad)
+        print(f"\033[1;32m\tDone reading TKeyList\n\033[0m")
         return cls(keys, padding), buffer
 
     def __len__(self):

@@ -175,6 +175,7 @@ class ROOTFile(ROOTSerializable):
         4. Consumes the padding bytes from the buffer.
         5. Returns the parsed ROOT file object and the remaining buffer.
         """
+        print("\033[1;96mReading TFile Header...\033[0m")
         (magic,), buffer = buffer.unpack("4s")
         if magic != b"root":
             msg = f"ROOTFile.read: magic is not 'root': {magic!r}"
@@ -194,6 +195,7 @@ class ROOTFile(ROOTSerializable):
 
     def get_TFile(self, fetch_data: DataFetcher) -> TFile:
         """Get the TFile object (root directory) from the file."""
+        print("\033[1;96mReading TFile Key + Object...\033[0m")
         buffer = fetch_data(self.header.fBEGIN, self.header.fNbytesName)
         key, buffer = TKey.read(buffer)
         if key.fSeekKey != self.header.fBEGIN:

@@ -18,13 +18,13 @@ class ReadBuffer:
         local_refs (dict[int, bytes], optional): A dictionary of local references that may
             be found in the buffer (for use reading StreamHeader data)
     """
-
     data: memoryview
     abspos: int | None
     relpos: int
     local_refs: dict[int, bytes] = dataclasses.field(default_factory=dict)
 
     def __getitem__(self, key: slice) -> ReadBuffer:
+        # print(f"__getitem__ {key=}")
         """Get a slice of the buffer."""
         if key.start > len(self.data):
             msg = f"Cannot get slice {key} from buffer of length {len(self.data)}"
@@ -63,6 +63,7 @@ class ReadBuffer:
         if isinstance(fmt, struct.Struct):
             return fmt.unpack(self.data[: fmt.size]), self[fmt.size :]
         size = struct.calcsize(fmt)
+        # print (f"size={size}, fmt={fmt}, len(self.data)={len(self.data)}")
         return struct.unpack(fmt, self.data[:size]), self[size:]
 
     def consume(self, size: int) -> tuple[bytes, ReadBuffer]:
@@ -103,11 +104,13 @@ class ROOTSerializable:
     """
     @classmethod
     def read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
+        print(f"\033[3;96mROOTSerializable (type T): Reading {cls.__name__} from buffer...\033[0m")
         args = []
         namespace = get_type_hints(cls)
         for field in dataclasses.fields(cls):  # type: ignore[arg-type]
             ftype = namespace[field.name]
             if issubclass(ftype, ROOTSerializable):
+                print(f"\033[3;96m\tReading field {field.name} of type {ftype}...\033[0m")
                 arg, buffer = ftype.read(buffer)
             else:
                 msg = f"Cannot read field {field.name} of type {ftype}"
@@ -142,9 +145,9 @@ class StructClass(ROOTSerializable):
 
     @classmethod
     def read(cls: type[S], buffer: ReadBuffer) -> tuple[S, ReadBuffer]:
+        print(f"\033[3;96mStructClass (type S): Reading {cls.__name__} from buffer...\033[0m")
         args, buffer = buffer.unpack(cls._struct)
         return cls(*args), buffer
-
 
 def structify(big_endian: bool):
     """A decorator to add a precompiled struct.Struct object to a StructClass."""

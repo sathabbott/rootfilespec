@@ -80,6 +80,7 @@ class RCompressed(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
+        print(f"Reading RCompressed from buffer {buffer}")
         header, buffer = RCompressionHeader.read(buffer)
         if header.fAlgorithm == b"L4":
             checksum, buffer = buffer.consume(4)
