@@ -67,7 +67,18 @@ class ReadBuffer:
 
     def consume(self, size: int) -> tuple[bytes, ReadBuffer]:
         """Consume the given number of bytes from the buffer."""
+        if size > len(self.data):
+            msg = f"Cannot consume {size} bytes from buffer of length {len(self.data)}"
+            raise IndexError(msg)
+        if size < 0:
+            msg = (
+                f"Cannot consume a negative number of bytes: {size=}, {self.__len__()=}"
+            )
+            raise ValueError(msg)
         return bytes(self.data[:size]), self[size:]
+
+    def info(self) -> str:
+        return f"buffer size={self.__len__()} at abspos={self.abspos}, relpos={self.relpos}"
 
 
 DataFetcher = Callable[[int, int], ReadBuffer]
@@ -76,10 +87,37 @@ T = TypeVar("T", bound="ROOTSerializable")
 
 
 class ROOTSerializable:
+    """
+    A base class for objects that can be serialized and deserialized from a buffer.
+
+    Methods
+    -------
+    read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
+        Reads an instance of the class from the provided buffer.
+
+    Parameters
+    ----------
+    cls : type[T]
+        The class type to be read from the buffer.
+    buffer : ReadBuffer
+        The buffer from which the class instance will be read.
+
+    Returns
+    -------
+    tuple[T, ReadBuffer]
+        A tuple containing the deserialized class instance and the remaining buffer.
+
+    Raises
+    ------
+    NotImplementedError
+        If a field's type is not a subclass of ROOTSerializable.
+    """
+
     @classmethod
     def read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
         args = []
         namespace = get_type_hints(cls)
+        # iterate over the fields of the class (like attributes but we haven't instantiated the class yet)
         for field in dataclasses.fields(cls):  # type: ignore[arg-type]
             ftype = namespace[field.name]
             if issubclass(ftype, ROOTSerializable):
@@ -95,6 +133,21 @@ S = TypeVar("S", bound="StructClass")
 
 
 class StructClass(ROOTSerializable):
+    """A class used to represent a structure that can be serialized and deserialized using ROOT.
+
+    Attributes
+    ----------
+    _struct : struct.Struct
+        A struct object that defines the format of the structure.
+
+    Methods
+    -------
+    size() -> int:
+        Returns the size of the structure in bytes.
+    read(buffer: ReadBuffer) -> tuple[StructClass, ReadBuffer]:
+        Reads the structure from the given buffer and returns an instance of the class and the remaining buffer.
+    """
+
     _struct: struct.Struct
 
     @classmethod

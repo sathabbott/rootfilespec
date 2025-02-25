@@ -31,12 +31,12 @@ class TKey_header(StructClass):
         fCycle (int): Cycle of key
     """
 
-    fNbytes: int = sfield("i")
-    fVersion: int = sfield("h")
-    fObjlen: int = sfield("i")
+    fNbytes: int = sfield("I")
+    fVersion: int = sfield("H")
+    fObjlen: int = sfield("I")
     fDatime: int = sfield("I")
-    fKeylen: int = sfield("h")
-    fCycle: int = sfield("h")
+    fKeylen: int = sfield("H")
+    fCycle: int = sfield("H")
 
     def write_time(self):
         """Date and time when record was written to file"""
@@ -58,6 +58,7 @@ class TKey(ROOTSerializable):
     See https://root.cern/doc/master/classTKey.html for more information.
     """
 
+    # Fields for a TKey
     header: TKey_header
     fSeekKey: int
     fSeekPdir: int
@@ -67,16 +68,16 @@ class TKey(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        initial_size = len(buffer)
+        initial_size = buffer.__len__()
         header, buffer = TKey_header.read(buffer)
         if header.fVersion < 1000:
-            (fSeekKey, fSeekPdir), buffer = buffer.unpack(">ii")
+            (fSeekKey, fSeekPdir), buffer = buffer.unpack(">II")
         else:
-            (fSeekKey, fSeekPdir), buffer = buffer.unpack(">qq")
+            (fSeekKey, fSeekPdir), buffer = buffer.unpack(">QQ")
         fClassName, buffer = TString.read(buffer)
         fName, buffer = TString.read(buffer)
         fTitle, buffer = TString.read(buffer)
-        if len(buffer) != initial_size - header.fKeylen:
+        if buffer.__len__() != initial_size - header.fKeylen:
             raise ValueError("TKey.read: buffer size mismatch")  # noqa: EM101
         return cls(header, fSeekKey, fSeekPdir, fClassName, fName, fTitle), buffer
 
@@ -90,11 +91,16 @@ class TKey(ROOTSerializable):
         objtype: type[ROOTSerializable] | None = None,
     ) -> ROOTSerializable:
         buffer = fetch_data(
-            self.fSeekKey + self.header.fKeylen,
-            self.header.fNbytes - self.header.fKeylen,
+            self.fSeekKey
+            + self.header.fKeylen,  # Points to the start of the object data
+            self.header.fNbytes - self.header.fKeylen,  # The size of the object data
         )
+
         compressed = None
-        if len(buffer) != self.header.fObjlen:
+        # fObjlen is the number of bytes of uncompressed data
+        # The length of the buffer is the number of bytes of compressed data
+        if buffer.__len__() != self.header.fObjlen:
+            # This is a compressed object
             compressed, buffer = RCompressed.read(buffer)
             if compressed.header.uncompressed_size() != self.header.fObjlen:
                 msg = "TKey.read_object: uncompressed size mismatch. "

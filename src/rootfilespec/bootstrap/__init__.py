@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from .RNTupleAnchor import RNTupleAnchor
+from .RNTupleEnvelopeLink import RNTupleEnvelopeLink, RNTupleLocator
+from .RNTupleEnvelope import RNTupleEnvelope
 from .TDirectory import TDirectory, TKeyList
 from .TFile import ROOTFile, TFile
 from .TKey import TKey
@@ -14,6 +17,10 @@ from .TStreamerInfo import (
 from .TString import TString
 
 __all__ = [
+    "RNTupleAnchor",
+	"RNTupleEnvelope",
+	"RNTupleEnvelopeLink",
+    "RNTupleLocator",
     "ROOTFile",
     "TDirectory",
     "TFile",

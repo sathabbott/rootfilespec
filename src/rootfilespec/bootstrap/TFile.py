@@ -26,7 +26,7 @@ class VersionInfo(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        (version,), buffer = buffer.unpack(">i")
+        (version,), buffer = buffer.unpack(">I")
         return cls(
             major=version // 10_000 % 100,
             minor=version // 100 % 100,
@@ -92,16 +92,16 @@ class ROOTFile_header_v622_small(StructClass):
         fNbytesInfo (int): Number of bytes in StreamerInfo record
     """
 
-    fBEGIN: int = sfield("i")
-    fEND: int = sfield("i")
-    fSeekFree: int = sfield("i")
-    fNbytesFree: int = sfield("i")
-    nfree: int = sfield("i")
-    fNbytesName: int = sfield("i")
+    fBEGIN: int = sfield("I")
+    fEND: int = sfield("I")
+    fSeekFree: int = sfield("I")
+    fNbytesFree: int = sfield("I")
+    nfree: int = sfield("I")
+    fNbytesName: int = sfield("I")
     fUnits: int = sfield("B")
-    fCompress: int = sfield("i")
-    fSeekInfo: int = sfield("i")
-    fNbytesInfo: int = sfield("i")
+    fCompress: int = sfield("I")
+    fSeekInfo: int = sfield("I")
+    fNbytesInfo: int = sfield("I")
 
 
 @structify(big_endian=True)
@@ -123,8 +123,31 @@ class ROOTFile_header_v622_large(StructClass):
 
 @dataclass
 class ROOTFile(ROOTSerializable):
+    """A class representing a ROOT file.
+    Binary Spec: https://root.cern.ch/doc/master/classTFile.html
+
+    Attributes:
+        magic (bytes): The magic number identifying the file as a ROOT file.
+        fVersion (VersionInfo): The version information of the ROOT file.
+        header (Union[ROOTFile_header_v302, ROOTFile_header_v622_small, ROOTFile_header_v622_large]): The header of the ROOT file.
+        UUID (Union[bytes, TUUID]): The UUID of the ROOT file.
+        padding (bytes): Padding bytes in the ROOT file.
+
+    Methods:
+        read(cls, buffer: ReadBuffer) -> Tuple[ROOTFile, ReadBuffer]:
+            Reads a ROOT file from the given buffer and returns a ROOTFile instance and the remaining buffer.
+
+        get_TFile(self, fetch_data: DataFetcher) -> TFile:
+            Retrieves the TFile object (root directory) from the file using the provided data fetcher.
+
+        get_StreamerInfo(self, fetch_data: DataFetcher) -> TList:
+            Retrieves the StreamerInfo (list of streamers) from the file using the provided data fetcher.
+    """
+
+    # Fields for the ROOT file header
     magic: bytes
     fVersion: VersionInfo
+    # Field for the actual header. The version determines which header to use.
     header: (
         ROOTFile_header_v302 | ROOTFile_header_v622_small | ROOTFile_header_v622_large
     )
@@ -133,6 +156,25 @@ class ROOTFile(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
+        """Reads and parses a ROOT file from the given buffer.
+        Binary Spec: https://root.cern.ch/doc/master/classTFile.html
+                     https://root.cern.ch/doc/master/header.html
+        Args:
+            buffer (ReadBuffer): The buffer containing the ROOT file data.
+
+        Returns:
+            tuple: A tuple containing the parsed ROOT file object and the remaining buffer.
+
+        Raises:
+            ValueError: If the magic number in the buffer is not 'root'.
+
+        The function performs the following steps:
+        1. Unpacks the magic number from the buffer and checks if it is 'root'.
+        2. Reads the version information from the buffer.
+        3. Depending on the version, reads the appropriate header and UUID from the buffer.
+        4. Consumes the padding bytes from the buffer.
+        5. Returns the parsed ROOT file object and the remaining buffer.
+        """
         (magic,), buffer = buffer.unpack("4s")
         if magic != b"root":
             msg = f"ROOTFile.read: magic is not 'root': {magic!r}"
@@ -181,13 +223,16 @@ class ROOTFile(ROOTSerializable):
 
 @dataclass
 class TFile(ROOTSerializable):
-    """The TFile object is a TDirectory with an extra name and title field.
+    """The TFile object is a TDirectory with an extra name and title field (the first or "root" TDirectory):
+        Binary Spec (the DATA section): https://root.cern.ch/doc/master/tfile.html
 
-    TDirectory otherwise has its name and title in its owning TKey object.
+    TDirectory otherwise has its name and title in its owning TKey object (see TDirectory class).
     """
 
+    # Header fields for the root TDirectory
     fName: TString
     fTitle: TString
+    # Field for the actual root TDirectory (formatted like a normal TDirectory)
     rootdir: TDirectory
 
     def get_KeyList(self, fetch_data):
