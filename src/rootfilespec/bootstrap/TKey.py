@@ -69,7 +69,7 @@ class TKey(ROOTSerializable):
     @classmethod
     def read(cls, buffer: ReadBuffer):
         # print(f"\tReading TKey from buffer {buffer}")
-        print(f"\033[1;36m\tReading TKey, len(buffer)={buffer.__len__()}\033[0m")
+        print(f"\033[1;36m\tReading TKey; {buffer.info()}\033[0m")
         initial_size = buffer.__len__()
         header, buffer = TKey_header.read(buffer)
         print(f"\t\t{header}")
@@ -100,7 +100,7 @@ class TKey(ROOTSerializable):
             self.fSeekKey + self.header.fKeylen, # Points to the start of the object data
             self.header.fNbytes - self.header.fKeylen, # The size of the object data
         )
-        print(f"\033[1;36m\tReading TObject, len(buffer)={buffer.__len__()}\033[0m")
+        print(f"\033[1;36m\tReading TObject; {buffer.info()}\033[0m")
         compressed = None
         # fObjlen is the number of bytes of uncompressed data
         # The length of the buffer is the number of bytes of compressed data

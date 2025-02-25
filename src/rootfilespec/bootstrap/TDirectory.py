@@ -85,7 +85,7 @@ class TDirectory(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        print(f"\033[1;36m\t\tReading TDirectory, len(buffer)={buffer.__len__()}\033[0m")
+        print(f"\033[1;36m\t\tReading TDirectory; {buffer.info()}\033[0m")
         header, buffer = TDirectory_header_v622.read(buffer)
         print(f"\t\t\t{header}")
         if header.fVersion < 1000:

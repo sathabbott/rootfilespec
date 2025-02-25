@@ -69,6 +69,9 @@ class ReadBuffer:
     def consume(self, size: int) -> tuple[bytes, ReadBuffer]:
         """Consume the given number of bytes from the buffer."""
         return bytes(self.data[:size]), self[size:]
+    
+    def info(self) -> str:
+        return f"buffer size={self.__len__()} at abspos={self.abspos}, relpos={self.relpos}"
 
 
 DataFetcher = Callable[[int, int], ReadBuffer]
