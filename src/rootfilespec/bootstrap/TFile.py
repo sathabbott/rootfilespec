@@ -26,7 +26,7 @@ class VersionInfo(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        (version,), buffer = buffer.unpack(">i")
+        (version,), buffer = buffer.unpack(">I")
         return cls(
             major=version // 10_000 % 100,
             minor=version // 100 % 100,
@@ -92,16 +92,16 @@ class ROOTFile_header_v622_small(StructClass):
         fNbytesInfo (int): Number of bytes in StreamerInfo record
     """
 
-    fBEGIN: int = sfield("i")
-    fEND: int = sfield("i")
-    fSeekFree: int = sfield("i")
-    fNbytesFree: int = sfield("i")
-    nfree: int = sfield("i")
-    fNbytesName: int = sfield("i")
+    fBEGIN: int = sfield("I")
+    fEND: int = sfield("I")
+    fSeekFree: int = sfield("I")
+    fNbytesFree: int = sfield("I")
+    nfree: int = sfield("I")
+    fNbytesName: int = sfield("I")
     fUnits: int = sfield("B")
-    fCompress: int = sfield("i")
-    fSeekInfo: int = sfield("i")
-    fNbytesInfo: int = sfield("i")
+    fCompress: int = sfield("I")
+    fSeekInfo: int = sfield("I")
+    fNbytesInfo: int = sfield("I")
 
 
 @structify(big_endian=True)

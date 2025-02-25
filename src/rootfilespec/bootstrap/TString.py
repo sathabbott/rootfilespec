@@ -32,6 +32,6 @@ class TString(ROOTSerializable):
         """
         (length,), buffer = buffer.unpack(">B")
         if length == 255:
-            (length,), buffer = buffer.unpack(">i")
+            (length,), buffer = buffer.unpack(">I")
         data, buffer = buffer.consume(length)
         return cls(data), buffer

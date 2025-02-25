@@ -31,12 +31,12 @@ class TKey_header(StructClass):
         fCycle (int): Cycle of key
     """
 
-    fNbytes: int = sfield("i")
-    fVersion: int = sfield("h")
-    fObjlen: int = sfield("i")
+    fNbytes: int = sfield("I")
+    fVersion: int = sfield("H")
+    fObjlen: int = sfield("I")
     fDatime: int = sfield("I")
-    fKeylen: int = sfield("h")
-    fCycle: int = sfield("h")
+    fKeylen: int = sfield("H")
+    fCycle: int = sfield("H")
 
     def write_time(self):
         """Date and time when record was written to file"""
@@ -58,6 +58,7 @@ class TKey(ROOTSerializable):
     See https://root.cern/doc/master/classTKey.html for more information.
     """
 
+    # Fields for a TKey
     header: TKey_header
     fSeekKey: int
     fSeekPdir: int
@@ -70,9 +71,9 @@ class TKey(ROOTSerializable):
         initial_size = len(buffer)
         header, buffer = TKey_header.read(buffer)
         if header.fVersion < 1000:
-            (fSeekKey, fSeekPdir), buffer = buffer.unpack(">ii")
+            (fSeekKey, fSeekPdir), buffer = buffer.unpack(">II")
         else:
-            (fSeekKey, fSeekPdir), buffer = buffer.unpack(">qq")
+            (fSeekKey, fSeekPdir), buffer = buffer.unpack(">QQ")
         fClassName, buffer = TString.read(buffer)
         fName, buffer = TString.read(buffer)
         fTitle, buffer = TString.read(buffer)
