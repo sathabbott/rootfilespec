@@ -107,13 +107,13 @@ class ROOTSerializable:
     """
     @classmethod
     def read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
-        print(f"\033[3;34mROOTSerializable (type T): Reading {cls.__name__} from buffer...\033[0m")
+        # print(f"\033[3;34mROOTSerializable (type T): Reading {cls.__name__} from buffer...\033[0m")
         args = []
         namespace = get_type_hints(cls)
         for field in dataclasses.fields(cls):  # type: ignore[arg-type]
             ftype = namespace[field.name]
             if issubclass(ftype, ROOTSerializable):
-                print(f"\033[3;34m\tReading field {field.name} of type {ftype}...\033[0m")
+                # print(f"\033[3;34m\tReading field {field.name} of type {ftype}...\033[0m")
                 arg, buffer = ftype.read(buffer)
             else:
                 msg = f"Cannot read field {field.name} of type {ftype}"
@@ -148,7 +148,7 @@ class StructClass(ROOTSerializable):
 
     @classmethod
     def read(cls: type[S], buffer: ReadBuffer) -> tuple[S, ReadBuffer]:
-        print(f"\033[3;34mStructClass (type S): Reading {cls.__name__} from buffer...\033[0m")
+        # print(f"\033[3;34mStructClass (type S): Reading {cls.__name__} from buffer...\033[0m")
         args, buffer = buffer.unpack(cls._struct)
         return cls(*args), buffer
 

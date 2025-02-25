@@ -68,11 +68,10 @@ class TKey(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        # print(f"\tReading TKey from buffer {buffer}")
         print(f"\033[1;36m\tReading TKey; {buffer.info()}\033[0m")
         initial_size = buffer.__len__()
         header, buffer = TKey_header.read(buffer)
-        print(f"\t\t{header}")
+        # print(f"\t\t{header}")
         if header.fVersion < 1000:
             (fSeekKey, fSeekPdir), buffer = buffer.unpack(">II")
         else:
@@ -80,7 +79,6 @@ class TKey(ROOTSerializable):
         fClassName, buffer = TString.read(buffer)
         fName, buffer = TString.read(buffer)
         fTitle, buffer = TString.read(buffer)
-        # print(f"\t\tTKey initial_size={initial_size} header.fKeylen={header.fKeylen} len(buffer)={buffer.__len__()}")
         if buffer.__len__() != initial_size - header.fKeylen:
             raise ValueError("TKey.read: buffer size mismatch")  # noqa: EM101
         print(f"\033[1;32m\tDone reading TKey\n\033[0m")

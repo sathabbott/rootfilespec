@@ -10,7 +10,7 @@ if __name__ == "__main__":
     initial_read_size = 512
     # path = Path("../TTToSemiLeptonic_UL18JMENanoAOD-zstd.root")
     path = Path("RNTuple.root")
-    print(f"Reading {path}")
+    print(f"\033[1;36mReading '{path}'...\n\033[0m")
     with path.open("rb") as filehandle:
 
         def fetch_data(seek: int, size: int):
@@ -23,7 +23,7 @@ if __name__ == "__main__":
             Returns:
                 ReadBuffer: A buffer containing the read data, along with the seek position and an offset of 0.
             """
-            print(f"\033[3;33mfetch_data {seek=} {size=}\033[0m")
+            # print(f"\033[3;33mfetch_data {seek=} {size=}\033[0m")
             filehandle.seek(seek)
             return ReadBuffer(memoryview(filehandle.read(size)), seek, 0)
 
@@ -33,7 +33,7 @@ if __name__ == "__main__":
         print(f"\t{file}\n")
 
         def fetch_cached(seek: int, size: int):
-            print(f"\033[3;33mfetch_cached {seek=} {size=}\033[0m")
+            # print(f"\033[3;33mfetch_cached {seek=} {size=}\033[0m")
             if seek + size <= buffer.__len__():
                 return buffer[seek : seek + size]
             print("Didn't find data in initial read buffer, fetching from file")
@@ -58,13 +58,18 @@ if __name__ == "__main__":
         for name, key in keylist.items():
             print(f"\t{name} ({key.fClassName.fString})")
 
+        # Get TStreamerInfo (List of classes used in the file)
         streamerinfo = file.get_StreamerInfo(fetch_data)
 
         # tree = keylist["Events"].read_object(fetch_data, )
         # print(tree)
-
+    print(f"\n\033[1;32mClosing '{path}'\n\033[0m")
+    
+    # abbott: Current TStreamer code doesn't handle RNTuple correctly. 
+    #           ignore for now, not needed to progress on project.
+    print(f"TStreamerInfo Summary:")
     for item in streamerinfo.items:
         if isinstance(item, TStreamerInfo):
-            print(item.b_named.fName.fString)
+            print(f"\t{item.b_named.fName.fString}")
             for obj in item.fObjects.objects:
-                print(f"  {obj.b_element.b_named.fName.fString}")
+                print(f"\t\t{obj.b_element.b_named.fName.fString}: {obj.b_element.b_named.b_object}")

@@ -87,7 +87,7 @@ class TDirectory(ROOTSerializable):
     def read(cls, buffer: ReadBuffer):
         print(f"\033[1;36m\t\tReading TDirectory; {buffer.info()}\033[0m")
         header, buffer = TDirectory_header_v622.read(buffer)
-        print(f"\t\t\t{header}")
+        # print(f"\t\t\t{header}")
         if header.fVersion < 1000:
             (fSeekDir, fSeekParent, fSeekKeys), buffer = buffer.unpack(">iii")
         else:
@@ -106,6 +106,8 @@ class TDirectory(ROOTSerializable):
         buffer = fetch_data(
             self.fSeekKeys, self.header.fNbytesName + self.header.fNbytesKeys
         )
+        # abbott: For TKeyList, should just need fNbytesKeys? unless there is some TNamed thing later. (don't understand fNbytesName)
+        #           need too test on different TKeyList cases to understand
         key, _ = TKey.read(buffer)
         if key.fSeekKey != self.fSeekKeys:
             msg = f"TDirectory.read_keylist: fSeekKey mismatch {key.fSeekKey} != {self.fSeekKeys}"
@@ -114,6 +116,7 @@ class TDirectory(ROOTSerializable):
             msg = f"TDirectory.read_keylist: fSeekPdir mismatch {key.fSeekPdir} != {self.fSeekDir}"
             raise ValueError(msg)
 
+        # abbott: Why another fetch_cached here?
         def fetch_cached(seek: int, size: int):
             seek -= self.fSeekKeys
             if seek + size <= buffer.__len__():
