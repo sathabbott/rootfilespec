@@ -50,7 +50,7 @@ class RNTupleAnchor(ROOTSerializable):
 
     Attributes:
         header (RNTupleAnchor_header): RNTuple Anchor header information
-        padding (bytes): Padding after the Anchor
+        padding (bytes): Padding after the Anchor, before the checksum
         checksum (int): Checksum of the Anchor
     """
 

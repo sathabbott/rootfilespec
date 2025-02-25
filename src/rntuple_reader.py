@@ -78,11 +78,11 @@ if __name__ == "__main__":
 
     # abbott: Current TStreamer code doesn't handle RNTuple correctly. 
     #           ignore for now, not needed to progress on project.
-    print(f"TStreamerInfo Summary:")
-    for item in streamerinfo.items:
-        if isinstance(item, TStreamerInfo):
-            print(f"\t{item.b_named.fName.fString}")
-            for obj in item.fObjects.objects:
-                # print(f"\t\t{obj.b_element.b_named.fName.fString}: {obj.b_element.b_named.b_object}")
-                print(f"\t\t{obj.b_element.b_named.fName.fString}")
+    # print(f"TStreamerInfo Summary:")
+    # for item in streamerinfo.items:
+    #     if isinstance(item, TStreamerInfo):
+    #         print(f"\t{item.b_named.fName.fString}")
+    #         for obj in item.fObjects.objects:
+    #             # print(f"\t\t{obj.b_element.b_named.fName.fString}: {obj.b_element.b_named.b_object}")
+    #             print(f"\t\t{obj.b_element.b_named.fName.fString}")
                 
