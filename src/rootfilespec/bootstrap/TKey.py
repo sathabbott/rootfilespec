@@ -90,11 +90,14 @@ class TKey(ROOTSerializable):
         objtype: type[ROOTSerializable] | None = None,
     ) -> ROOTSerializable:
         buffer = fetch_data(
-            self.fSeekKey + self.header.fKeylen,
-            self.header.fNbytes - self.header.fKeylen,
+            self.fSeekKey + self.header.fKeylen, # Points to the start of the object data
+            self.header.fNbytes - self.header.fKeylen, # The size of the object data
         )
         compressed = None
-        if len(buffer) != self.header.fObjlen:
+        # fObjlen is the number of bytes of uncompressed data
+        # The length of the buffer is the number of bytes of compressed data
+        if buffer.__len__() != self.header.fObjlen:
+            # This is a compressed object
             compressed, buffer = RCompressed.read(buffer)
             if compressed.header.uncompressed_size() != self.header.fObjlen:
                 msg = "TKey.read_object: uncompressed size mismatch. "

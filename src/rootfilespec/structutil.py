@@ -76,6 +76,31 @@ T = TypeVar("T", bound="ROOTSerializable")
 
 
 class ROOTSerializable:
+    """
+    A base class for objects that can be serialized and deserialized from a buffer.
+
+    Methods
+    -------
+    read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
+        Reads an instance of the class from the provided buffer.
+
+    Parameters
+    ----------
+    cls : type[T]
+        The class type to be read from the buffer.
+    buffer : ReadBuffer
+        The buffer from which the class instance will be read.
+
+    Returns
+    -------
+    tuple[T, ReadBuffer]
+        A tuple containing the deserialized class instance and the remaining buffer.
+
+    Raises
+    ------
+    NotImplementedError
+        If a field's type is not a subclass of ROOTSerializable.
+    """
     @classmethod
     def read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
         args = []
@@ -95,6 +120,20 @@ S = TypeVar("S", bound="StructClass")
 
 
 class StructClass(ROOTSerializable):
+    """ A class used to represent a structure that can be serialized and deserialized using ROOT.
+
+    Attributes
+    ----------
+    _struct : struct.Struct
+        A struct object that defines the format of the structure.
+
+    Methods
+    -------
+    size() -> int:
+        Returns the size of the structure in bytes.
+    read(buffer: ReadBuffer) -> tuple[StructClass, ReadBuffer]:
+        Reads the structure from the given buffer and returns an instance of the class and the remaining buffer.
+    """
     _struct: struct.Struct
 
     @classmethod

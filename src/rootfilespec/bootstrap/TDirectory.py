@@ -65,8 +65,9 @@ class TDirectory_header_v622(StructClass):
 
 @dataclass
 class TDirectory(ROOTSerializable):
-    """TDirectory object
-
+    """ TDirectory object.
+    Binary Spec (the DATA section): https://root.cern.ch/doc/master/tdirectory.html
+    
     Attributes:
         header (TDirectory_header_v622): TDirectory header information
         fSeekDir (int): Byte offset of directory record in file
@@ -75,6 +76,7 @@ class TDirectory(ROOTSerializable):
         fUUID (TUUID): Universally Unique Identifier
     """
 
+    # Fields for a TDirectory
     header: TDirectory_header_v622
     fSeekDir: int
     fSeekParent: int
@@ -95,6 +97,8 @@ class TDirectory(ROOTSerializable):
         return cls(header, fSeekDir, fSeekParent, fSeekKeys, fUUID), buffer
 
     def get_KeyList(self, fetch_data: DataFetcher) -> TKeyList:
+        # The TKeyList for a TDirectory is a TList containing all the (visible) TKeys
+        #   For RNTuples, it will only contain the RNTuple Anchor TKey(s)
         buffer = fetch_data(
             self.fSeekKeys, self.header.fNbytesName + self.header.fNbytesKeys
         )
@@ -121,6 +125,10 @@ DICTIONARY[b"TDirectory"] = TDirectory
 
 @dataclass
 class TKeyList(ROOTSerializable, Mapping[str, TKey]):
+    # The TKeyList for a TDirectory is a TList containing all the (visible) TKeys
+    #   For RNTuples, it will only contain the RNTuple Anchor TKey(s)    
+    
+    # Fields for a TKeyList
     fKeys: list[TKey]
     padding: bytes
 
