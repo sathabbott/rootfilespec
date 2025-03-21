@@ -65,9 +65,9 @@ class TDirectory_header_v622(StructClass):
 
 @dataclass
 class TDirectory(ROOTSerializable):
-    """ TDirectory object.
+    """TDirectory object.
     Binary Spec (the DATA section): https://root.cern.ch/doc/master/tdirectory.html
-    
+
     Attributes:
         header (TDirectory_header_v622): TDirectory header information
         fSeekDir (int): Byte offset of directory record in file
@@ -85,7 +85,7 @@ class TDirectory(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        print(f"\033[1;36m\t\tReading TDirectory; {buffer.info()}\033[0m")
+        print(f"\033[1;36m\t\tReading TDirectory;\033[0m {buffer.info()}")
         header, buffer = TDirectory_header_v622.read(buffer)
         # print(f"\t\t\t{header}")
         if header.fVersion < 1000:
@@ -96,7 +96,7 @@ class TDirectory(ROOTSerializable):
         if header.fVersion < 1000:
             # Extra space to allow seeks to become 64 bit without moving this header
             buffer = buffer[12:]
-        print(f"\033[1;32m\t\tDone reading TDirectory\n\033[0m")
+        print("\033[1;32m\t\tDone reading TDirectory\n\033[0m")
         return cls(header, fSeekDir, fSeekParent, fSeekKeys, fUUID), buffer
 
     def get_KeyList(self, fetch_data: DataFetcher) -> TKeyList:
@@ -107,7 +107,7 @@ class TDirectory(ROOTSerializable):
             self.fSeekKeys, self.header.fNbytesName + self.header.fNbytesKeys
         )
         # abbott: For TKeyList, should just need fNbytesKeys? unless there is some TNamed thing later. (don't understand fNbytesName)
-        #           need too test on different TKeyList cases to understand
+        #           need to test on different TKeyList cases to understand
         key, _ = TKey.read(buffer)
         if key.fSeekKey != self.fSeekKeys:
             msg = f"TDirectory.read_keylist: fSeekKey mismatch {key.fSeekKey} != {self.fSeekKeys}"
@@ -116,14 +116,19 @@ class TDirectory(ROOTSerializable):
             msg = f"TDirectory.read_keylist: fSeekPdir mismatch {key.fSeekPdir} != {self.fSeekDir}"
             raise ValueError(msg)
 
-        # abbott: Why another fetch_cached here?
+        # abbott: Why another fetch_cached here? (why subtract fSeekKeys?)
+        #  figured it out, leaving answer here in case i forget:
+        #      buffer was started above with fetch_data(self.fSeekKeys ...). so the buffer starts at fSeekKeys.
+        #      so, for fetch_cached, we need to subtract fSeekKeys to get the correct seek position in the buffer
+        #     bc when an argument is passed to seek in fetch_cached, it will be absolute position in the file,
+        #   but we need the relative position in the buffer. thus, we subtract fSeekKeys.
         def fetch_cached(seek: int, size: int):
             seek -= self.fSeekKeys
             if seek + size <= buffer.__len__():
                 return buffer[seek : seek + size]
             msg = f"TDirectory.read_keylist: fetch_cached: {seek=} {size=} out of range"
             raise ValueError(msg)
-        
+
         return key.read_object(fetch_cached, objtype=TKeyList)  # type: ignore[no-any-return]
 
 
@@ -133,16 +138,16 @@ DICTIONARY[b"TDirectory"] = TDirectory
 @dataclass
 class TKeyList(ROOTSerializable, Mapping[str, TKey]):
     # The TKeyList for a TDirectory contains all the (visible) TKeys
-    #   For RNTuples, it will only contain the RNTuple Anchor TKey(s)    
+    #   For RNTuples, it will only contain the RNTuple Anchor TKey(s)
     # Binary Spec: https://root.cern.ch/doc/master/keyslist.html
-    
+
     # Fields for a TKeyList
     fKeys: list[TKey]
     # padding: bytes
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        print(f"\033[1;36m\tReading TKeyList; {buffer.info()}\033[0m")
+        print(f"\033[1;36m\tReading TKeyList;\033[0m {buffer.info()}")
 
         (nKeys,), buffer = buffer.unpack(">I")
         keys: list[TKey] = []
@@ -156,7 +161,7 @@ class TKeyList(ROOTSerializable, Mapping[str, TKey]):
         # # corresponding to padding in case seeks need to be 64 bit
         # npad = 8 * sum(1 for k in keys if k.is_short())
         # padding, buffer = buffer.consume(npad)
-        print(f"\033[1;32m\tDone reading TKeyList\n\033[0m")
+        print("\033[1;32m\tDone reading TKeyList\n\033[0m")
         # return cls(keys, padding), buffer
         return cls(keys), buffer
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from rootfilespec.bootstrap import ROOTFile, TStreamerInfo
+from rootfilespec.bootstrap import ROOTFile
 from rootfilespec.structutil import ReadBuffer
 
 if __name__ == "__main__":
@@ -14,7 +14,7 @@ if __name__ == "__main__":
     with path.open("rb") as filehandle:
 
         def fetch_data(seek: int, size: int):
-            """ Fetches data from a file at a specified position and size.
+            """Fetches data from a file at a specified position and size.
 
             Args:
                 seek (int): The position in the file to start reading from.
@@ -54,29 +54,84 @@ if __name__ == "__main__":
 
         # Get TKeyList (List of all TKeys in the TDirectory)
         keylist = tfile.get_KeyList(fetch_data)
-        print(f"TKey List Summary:")
+        print("TKey List Summary:")
         for name, key in keylist.items():
             print(f"\t{name} ({key.fClassName.fString})")
 
         # Get TStreamerInfo (List of classes used in the file)
         streamerinfo = file.get_StreamerInfo(fetch_data)
 
-        # Get RNTuple Info
+        ########################################################################################################################
+        print(
+            "\033[1;31m\n/-------------------------------------------- Begin Reading RNTuples --------------------------------------------\ \033[0m"
+        )
+
+        #### Get RNTuple Info
         # Only RNTuple Anchor TKeys are visible (i.e. in TKeyList); ClassName = ROOT::RNTuple
         # anchor_keylist = [key for key in keylist.values() if key.fClassName.fString == b'ROOT::RNTuple']
-        for name, key in keylist.items():
+        for name, tkey in keylist.items():
             # Check for RNTuple Anchors
-            if key.fClassName.fString == b"ROOT::RNTuple":
-                print(f"\nRNTuple Anchor Key: {name}")
-                # print(f"\t{key}")
-                # Get RNTuple Anchor Object
-                rntuple = key.read_object(fetch_data)
-                # print(f"\tRNTupleAnchor: {rntuple.anchor}")
+            if tkey.fClassName.fString == b"ROOT::RNTuple":
+                print(
+                    f"\033[1;33m\n---------------------------------- Begin Reading RNTuple: '{name}' ----------------------------------\033[0m"
+                )
+                # print(f"\t{tkey}")
 
+                ### Get RNTuple Anchor Object
+                anchor = tkey.read_object(fetch_data)
+
+                # Print attributes of the RNTuple Anchor
+                # print(f"{anchor=}\n")
+                anchor.print_info()
+
+                ### Get the RNTuple Header Envelope from the Anchor
+                # anchor.get_header(fetch_data)
+
+                ### Get the RNTuple Footer Envelope from the Anchor
+                footer = anchor.footerLink.read_envelope(fetch_data)
+
+                # Print attributes of the RNTuple Footer
+                # print(f"{footer=}\n")
+                footer.print_info()
+
+                ### Get the RNTuple Page List Envelopes from the Footer Envelope
+                page_location_lists = footer.payload.get_pagelist(fetch_data)
+
+                # Print attributes of the RNTuple Page List Envelopes
+                for i, page_location_list in enumerate(page_location_lists):
+                    print(f"Page List Envelope {i}:")
+                    # print(f"\t{page_location_list=}\n")
+                    page_location_list.print_info()
+
+                ### Get the RNTuple Pages from the Page List Envelopes
+
+                cluster_column_page_lists = []
+                for i, page_location_list in enumerate(page_location_lists):
+                    pages = page_location_list.payload.get_pages(fetch_data)
+                    # print(f"\n{pages=}\n")
+                    cluster_column_page_lists.append(pages)
+
+                # Print attributes of the RNTuple Pages
+                for i_cluster, column_page_lists in enumerate(
+                    cluster_column_page_lists
+                ):
+                    for i_column, page_list in enumerate(column_page_lists):
+                        for i_page, page in enumerate(page_list):
+                            print(
+                                f"Cluster {i_cluster}, Column {i_column}, Page {i_page}:"
+                            )
+                            print(f"\t{page=}\n")
+                            # page.print_info()
+
+                print(
+                    f"\033[1;33m---------------------------------- Done Reading RNTuple: '{name}' ----------------------------------\033[0m"
+                )
+
+    # abbott TODO: update docs for class methods once they settle down
     print(f"\n\033[1;32mClosing '{path}'\n\033[0m")
     # quit()
 
-    # abbott: Current TStreamer code doesn't handle RNTuple correctly. 
+    # abbott: Current TStreamer code doesn't handle RNTuple correctly (i think).
     #           ignore for now, not needed to progress on project.
     # print(f"TStreamerInfo Summary:")
     # for item in streamerinfo.items:
@@ -85,4 +140,3 @@ if __name__ == "__main__":
     #         for obj in item.fObjects.objects:
     #             # print(f"\t\t{obj.b_element.b_named.fName.fString}: {obj.b_element.b_named.b_object}")
     #             print(f"\t\t{obj.b_element.b_named.fName.fString}")
-                

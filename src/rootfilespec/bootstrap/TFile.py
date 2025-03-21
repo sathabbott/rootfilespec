@@ -123,9 +123,9 @@ class ROOTFile_header_v622_large(StructClass):
 
 @dataclass
 class ROOTFile(ROOTSerializable):
-    """ A class representing a ROOT file.
+    """A class representing a ROOT file.
     Binary Spec: https://root.cern.ch/doc/master/classTFile.html
-        
+
     Attributes:
         magic (bytes): The magic number identifying the file as a ROOT file.
         fVersion (VersionInfo): The version information of the ROOT file.
@@ -143,7 +143,7 @@ class ROOTFile(ROOTSerializable):
         get_StreamerInfo(self, fetch_data: DataFetcher) -> TList:
             Retrieves the StreamerInfo (list of streamers) from the file using the provided data fetcher.
     """
-    
+
     # Fields for the ROOT file header
     magic: bytes
     fVersion: VersionInfo
@@ -156,7 +156,7 @@ class ROOTFile(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        """ Reads and parses a ROOT file from the given buffer.
+        """Reads and parses a ROOT file from the given buffer.
         Binary Spec: https://root.cern.ch/doc/master/classTFile.html
                      https://root.cern.ch/doc/master/header.html
         Args:
@@ -225,9 +225,9 @@ class ROOTFile(ROOTSerializable):
 
 @dataclass
 class TFile(ROOTSerializable):
-    """ The TFile object is a TDirectory with an extra name and title field (the first or "root" TDirectory):
+    """The TFile object is a TDirectory with an extra name and title field (the first or "root" TDirectory):
         Binary Spec (the DATA section): https://root.cern.ch/doc/master/tfile.html
-    
+
     TDirectory otherwise has its name and title in its owning TKey object (see TDirectory class).
     """
 

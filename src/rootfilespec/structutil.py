@@ -18,6 +18,7 @@ class ReadBuffer:
         local_refs (dict[int, bytes], optional): A dictionary of local references that may
             be found in the buffer (for use reading StreamHeader data)
     """
+
     data: memoryview
     abspos: int | None
     relpos: int
@@ -68,8 +69,16 @@ class ReadBuffer:
 
     def consume(self, size: int) -> tuple[bytes, ReadBuffer]:
         """Consume the given number of bytes from the buffer."""
+        # print(f"Consume {size=}, {self.__len__()=}")
+        if size > len(self.data):
+            msg = f"Cannot consume {size} bytes from buffer of length {len(self.data)}"
+            raise IndexError(msg)
+        if size < 0:
+            raise ValueError(
+                f"Cannot consume a negative number of bytes: {size=}, {self.__len__()=}"
+            )
         return bytes(self.data[:size]), self[size:]
-    
+
     def info(self) -> str:
         return f"buffer size={self.__len__()} at abspos={self.abspos}, relpos={self.relpos}"
 
@@ -105,11 +114,16 @@ class ROOTSerializable:
     NotImplementedError
         If a field's type is not a subclass of ROOTSerializable.
     """
+
     @classmethod
     def read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
+        # abbott TODO: update this for frames
+        # look at type  of data for each frame, if it contains a list, then read as a list frame
+        # dont just use list, use a user defined generic type. one for list frame, one for record frame
         # print(f"\033[3;34mROOTSerializable (type T): Reading {cls.__name__} from buffer...\033[0m")
         args = []
         namespace = get_type_hints(cls)
+        # iterate over the fields of the class (like attributes but we havn't instantiated the class yet)
         for field in dataclasses.fields(cls):  # type: ignore[arg-type]
             ftype = namespace[field.name]
             if issubclass(ftype, ROOTSerializable):
@@ -126,7 +140,7 @@ S = TypeVar("S", bound="StructClass")
 
 
 class StructClass(ROOTSerializable):
-    """ A class used to represent a structure that can be serialized and deserialized using ROOT.
+    """A class used to represent a structure that can be serialized and deserialized using ROOT.
 
     Attributes
     ----------
@@ -140,6 +154,7 @@ class StructClass(ROOTSerializable):
     read(buffer: ReadBuffer) -> tuple[StructClass, ReadBuffer]:
         Reads the structure from the given buffer and returns an instance of the class and the remaining buffer.
     """
+
     _struct: struct.Struct
 
     @classmethod
@@ -151,6 +166,7 @@ class StructClass(ROOTSerializable):
         # print(f"\033[3;34mStructClass (type S): Reading {cls.__name__} from buffer...\033[0m")
         args, buffer = buffer.unpack(cls._struct)
         return cls(*args), buffer
+
 
 def structify(big_endian: bool):
     """A decorator to add a precompiled struct.Struct object to a StructClass."""
