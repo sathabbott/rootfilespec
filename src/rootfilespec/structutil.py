@@ -74,9 +74,10 @@ class ReadBuffer:
             msg = f"Cannot consume {size} bytes from buffer of length {len(self.data)}"
             raise IndexError(msg)
         if size < 0:
-            raise ValueError(
+            msg = (
                 f"Cannot consume a negative number of bytes: {size=}, {self.__len__()=}"
             )
+            raise ValueError(msg)
         return bytes(self.data[:size]), self[size:]
 
     def info(self) -> str:
@@ -123,7 +124,7 @@ class ROOTSerializable:
         # print(f"\033[3;34mROOTSerializable (type T): Reading {cls.__name__} from buffer...\033[0m")
         args = []
         namespace = get_type_hints(cls)
-        # iterate over the fields of the class (like attributes but we havn't instantiated the class yet)
+        # iterate over the fields of the class (like attributes but we haven't instantiated the class yet)
         for field in dataclasses.fields(cls):  # type: ignore[arg-type]
             ftype = namespace[field.name]
             if issubclass(ftype, ROOTSerializable):

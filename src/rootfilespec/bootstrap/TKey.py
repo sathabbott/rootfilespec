@@ -136,6 +136,6 @@ class TKey(ROOTSerializable):
             msg += f"\nBuffer: {buffer}"
             raise ValueError(msg)
         print(
-            f"\033[1;32m\tDone reading TObject of type {typename}; \033[0m {buffer.info()}"
+            f"\033[1;32m\tDone reading TObject of type {typename!r}; \033[0m {buffer.info()}"
         )
         return obj

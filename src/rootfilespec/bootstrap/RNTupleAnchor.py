@@ -17,53 +17,6 @@ from .RNTupleEnvelopeLink import (
 from .streamedobject import StreamHeader
 from .TKey import DICTIONARY
 
-'''
-@dataclass
-class RNTuple(ROOTSerializable):
-    """ The main RNTuple object.
-    Binary Specification: https://github.com/root-project/root/blob/v6-34-00-patches/tree/ntuple/v7/doc/BinaryFormatSpecification.md
-    Attributes:
-        anchor (RNTupleAnchor): Contains the RNTuple metadata
-        header (RNTupleEnvelope): Contains RNTuple schema (field and column types)
-        footer (RNTupleEnvelope): Contains description of RNTuple clusters & location of page list envelope
-        page_list (RNTupleEnvelope): Contains the location of RNTuple data pages
-    """
-
-    anchor: RNTupleAnchor
-    header: RNTupleEnvelope
-    footer: RNTupleEnvelope
-    page_list: RNTupleEnvelope
-
-    @classmethod
-    def read(cls, buffer: ReadBuffer, fetch_data: DataFetcher):
-        print(f"\033[1;36m\nReading RNTuple;\n\033[0m {buffer.info()}")
-
-        # Read the RNTuple Anchor
-        anchor, buffer = RNTupleAnchor.read(buffer)
-        print(f"{anchor}\n")
-
-        # Read the RNTuple Header Envelope
-        # header, buffer = RNTupleEnvelope.read(buffer, header_link)
-        # TODO: Implement the RNTupleHeaderEnvelope_payload class
-
-
-
-
-        # Read the RNTuple Footer Envelope
-        footer = anchor.get_footer(fetch_data)
-        # footer, buffer = footer_link.read_envelope(buffer)
-
-        # Verify the checksums
-
-        # Read the RNTuple Page List Envelope
-        # page_list, buffer = RNTupleEnvelope.read(buffer, page_list_link)
-        # TODO: Implement the RNTuplePageListEnvelope_payload class
-
-
-        print(f"\033[1;32m\tDone reading RNTuple\n\033[0m")
-        return cls(anchor, footer), buffer
-'''
-
 
 @structify(big_endian=True)
 @dataclass(order=True)
@@ -128,17 +81,6 @@ class RNTupleAnchor(ROOTSerializable):
 
         #### Read the RNTuple Header Envelope Link
         (fSeekHeader, fNBytesHeader, fLenHeader), buffer = buffer.unpack(">QQQ")
-        """ # headerLink code before adding locator class
-        headerLink = RNTupleEnvelopeLink(fSeekHeader, fNBytesHeader, fLenHeader)
-
-        # Verify the header link (In case RNTupleEnvelopeLink class gets updated with more complicated formats)
-        if fSeekHeader != headerLink.offset:
-            raise ValueError(f"RNTupleAnchor.read: {fSeekHeader=} != {headerLink.offset=}")
-        if fNBytesHeader != headerLink.size:
-            raise ValueError(f"RNTupleAnchor.read: {fNBytesHeader=} != {headerLink.size=}")
-        if fLenHeader != headerLink.length:
-            raise ValueError(f"RNTupleAnchor.read: {fLenHeader=} != {headerLink.length=}")
-        """
 
         headerLink = RNTupleEnvelopeLink(
             fLenHeader,
@@ -147,31 +89,17 @@ class RNTupleAnchor(ROOTSerializable):
 
         # Verify the header link (In case RNTupleEnvelopeLink class gets updated with more complicated formats)
         if fLenHeader != headerLink.length:
-            raise ValueError(
-                f"RNTupleAnchor.read: {fLenHeader=} != {headerLink.length=}"
-            )
+            msg = f"RNTupleAnchor.read: {fLenHeader=} != {headerLink.length=}"
+            raise ValueError(msg)
         if fNBytesHeader != headerLink.locator.locatorSubclass.size:
-            raise ValueError(
-                f"RNTupleAnchor.read: {fNBytesHeader=} != {headerLink.locator.locatorSubclass.size=}"
-            )
+            msg = f"RNTupleAnchor.read: {fNBytesHeader=} != {headerLink.locator.locatorSubclass.size=}"
+            raise ValueError(msg)
         if fSeekHeader != headerLink.locator.locatorSubclass.offset:
-            raise ValueError(
-                f"RNTupleAnchor.read: {fSeekHeader=} != {headerLink.locator.locatorSubclass.offset=}"
-            )
+            msg = f"RNTupleAnchor.read: {fSeekHeader=} != {headerLink.locator.locatorSubclass.offset=}"
+            raise ValueError(msg)
 
         #### Read the RNTuple Footer Envelope Link
         (fSeekFooter, fNBytesFooter, fLenFooter), buffer = buffer.unpack(">QQQ")
-        """ # footerLink code before adding locator class
-        footerLink = RNTupleEnvelopeLink(fSeekFooter, fNBytesFooter, fLenFooter)
-
-        # Verify the footer link (In case RNTupleEnvelopeLink class gets updated with more complicated formats)
-        if fSeekFooter != footerLink.offset:
-            raise ValueError(f"RNTupleAnchor.read: {fSeekFooter=} != {footerLink.offset=}")
-        if fNBytesFooter != footerLink.size:
-            raise ValueError(f"RNTupleAnchor.read: {fNBytesFooter=} != {footerLink.size=}")
-        if fLenFooter != footerLink.length:
-            raise ValueError(f"RNTupleAnchor.read: {fLenFooter=} != {footerLink.length=}")
-        """
 
         footerLink = RNTupleEnvelopeLink(
             fLenFooter,
@@ -180,17 +108,14 @@ class RNTupleAnchor(ROOTSerializable):
 
         # Verify the footer link (In case RNTupleEnvelopeLink class gets updated with more complicated formats)
         if fLenFooter != footerLink.length:
-            raise ValueError(
-                f"RNTupleAnchor.read: {fLenFooter=} != {footerLink.length=}"
-            )
+            msg = f"RNTupleAnchor.read: {fLenFooter=} != {footerLink.length=}"
+            raise ValueError(msg)
         if fNBytesFooter != footerLink.locator.locatorSubclass.size:
-            raise ValueError(
-                f"RNTupleAnchor.read: {fNBytesFooter=} != {footerLink.locator.locatorSubclass.size=}"
-            )
+            msg = f"RNTupleAnchor.read: {fNBytesFooter=} != {footerLink.locator.locatorSubclass.size=}"
+            raise ValueError(msg)
         if fSeekFooter != footerLink.locator.locatorSubclass.offset:
-            raise ValueError(
-                f"RNTupleAnchor.read: {fSeekFooter=} != {footerLink.locator.locatorSubclass.offset=}"
-            )
+            msg = f"RNTupleAnchor.read: {fSeekFooter=} != {footerLink.locator.locatorSubclass.offset=}"
+            raise ValueError(msg)
 
         #### Read the Maximum Key Size
         (fMaxKeySize,), buffer = buffer.unpack(">Q")
@@ -215,7 +140,7 @@ class RNTupleAnchor(ROOTSerializable):
             sheader, fVersion, headerLink, footerLink, fMaxKeySize, unknown, checksum
         ), buffer
 
-    def print_info(self) -> str:
+    def print_info(self):
         print(
             "\033[1;35m\n-------------------------------- RNTuple Anchor Info --------------------------------\033[0m"
         )

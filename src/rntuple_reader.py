@@ -106,7 +106,7 @@ if __name__ == "__main__":
                 ### Get the RNTuple Pages from the Page List Envelopes
 
                 cluster_column_page_lists = []
-                for i, page_location_list in enumerate(page_location_lists):
+                for page_location_list in page_location_lists:
                     pages = page_location_list.payload.get_pages(fetch_data)
                     # print(f"\n{pages=}\n")
                     cluster_column_page_lists.append(pages)
