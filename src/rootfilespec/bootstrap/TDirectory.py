@@ -85,9 +85,8 @@ class TDirectory(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        print(f"\033[1;36m\t\tReading TDirectory;\033[0m {buffer.info()}")
         header, buffer = TDirectory_header_v622.read(buffer)
-        # print(f"\t\t\t{header}")
+
         if header.fVersion < 1000:
             (fSeekDir, fSeekParent, fSeekKeys), buffer = buffer.unpack(">iii")
         else:
@@ -96,7 +95,7 @@ class TDirectory(ROOTSerializable):
         if header.fVersion < 1000:
             # Extra space to allow seeks to become 64 bit without moving this header
             buffer = buffer[12:]
-        print("\033[1;32m\t\tDone reading TDirectory\n\033[0m")
+
         return cls(header, fSeekDir, fSeekParent, fSeekKeys, fUUID), buffer
 
     def get_KeyList(self, fetch_data: DataFetcher) -> TKeyList:
@@ -106,8 +105,7 @@ class TDirectory(ROOTSerializable):
         buffer = fetch_data(
             self.fSeekKeys, self.header.fNbytesName + self.header.fNbytesKeys
         )
-        # abbott: For TKeyList, should just need fNbytesKeys? unless there is some TNamed thing later. (don't understand fNbytesName)
-        #           need to test on different TKeyList cases to understand
+
         key, _ = TKey.read(buffer)
         if key.fSeekKey != self.fSeekKeys:
             msg = f"TDirectory.read_keylist: fSeekKey mismatch {key.fSeekKey} != {self.fSeekKeys}"
@@ -116,12 +114,6 @@ class TDirectory(ROOTSerializable):
             msg = f"TDirectory.read_keylist: fSeekPdir mismatch {key.fSeekPdir} != {self.fSeekDir}"
             raise ValueError(msg)
 
-        # abbott: Why another fetch_cached here? (why subtract fSeekKeys?)
-        #  figured it out, leaving answer here in case i forget:
-        #      buffer was started above with fetch_data(self.fSeekKeys ...). so the buffer starts at fSeekKeys.
-        #      so, for fetch_cached, we need to subtract fSeekKeys to get the correct seek position in the buffer
-        #     bc when an argument is passed to seek in fetch_cached, it will be absolute position in the file,
-        #   but we need the relative position in the buffer. thus, we subtract fSeekKeys.
         def fetch_cached(seek: int, size: int):
             seek -= self.fSeekKeys
             if seek + size <= buffer.__len__():
@@ -147,8 +139,6 @@ class TKeyList(ROOTSerializable, Mapping[str, TKey]):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        print(f"\033[1;36m\tReading TKeyList;\033[0m {buffer.info()}")
-
         (nKeys,), buffer = buffer.unpack(">I")
         keys: list[TKey] = []
         while len(keys) < nKeys:
@@ -161,7 +151,7 @@ class TKeyList(ROOTSerializable, Mapping[str, TKey]):
         # # corresponding to padding in case seeks need to be 64 bit
         # npad = 8 * sum(1 for k in keys if k.is_short())
         # padding, buffer = buffer.consume(npad)
-        print("\033[1;32m\tDone reading TKeyList\n\033[0m")
+
         # return cls(keys, padding), buffer
         return cls(keys), buffer
 

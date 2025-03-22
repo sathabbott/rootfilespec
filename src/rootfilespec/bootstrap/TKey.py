@@ -68,10 +68,8 @@ class TKey(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        print(f"\033[1;36m\tReading TKey;\033[0m {buffer.info()}")
         initial_size = buffer.__len__()
         header, buffer = TKey_header.read(buffer)
-        # print(f"\t\t{header}")
         if header.fVersion < 1000:
             (fSeekKey, fSeekPdir), buffer = buffer.unpack(">II")
         else:
@@ -81,7 +79,6 @@ class TKey(ROOTSerializable):
         fTitle, buffer = TString.read(buffer)
         if buffer.__len__() != initial_size - header.fKeylen:
             raise ValueError("TKey.read: buffer size mismatch")  # noqa: EM101
-        print("\033[1;32m\tDone reading TKey\n\033[0m")
         return cls(header, fSeekKey, fSeekPdir, fClassName, fName, fTitle), buffer
 
     def is_short(self) -> bool:
@@ -93,13 +90,12 @@ class TKey(ROOTSerializable):
         fetch_data: DataFetcher,
         objtype: type[ROOTSerializable] | None = None,
     ) -> ROOTSerializable:
-        # for k, v in DICTIONARY.items(): print(f"{k=}, {v=}")
         buffer = fetch_data(
             self.fSeekKey
             + self.header.fKeylen,  # Points to the start of the object data
             self.header.fNbytes - self.header.fKeylen,  # The size of the object data
         )
-        print(f"\033[1;36m\tReading TObject;\033[0m {buffer.info()}")
+
         compressed = None
         # fObjlen is the number of bytes of uncompressed data
         # The length of the buffer is the number of bytes of compressed data
@@ -135,7 +131,4 @@ class TKey(ROOTSerializable):
             msg += f"\n{obj=}"
             msg += f"\nBuffer: {buffer}"
             raise ValueError(msg)
-        print(
-            f"\033[1;32m\tDone reading TObject of type {typename!r}; \033[0m {buffer.info()}"
-        )
         return obj

@@ -71,8 +71,6 @@ class RNTupleAnchor(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        print(f"\033[1;36m\nReading RNTupleAnchor;\033[0m {buffer.info()}")
-
         #### Read the StreamHeader (every named class has a StreamHeader)
         sheader, buffer = StreamHeader.read(buffer)
 
@@ -127,7 +125,6 @@ class RNTupleAnchor(ROOTSerializable):
                     This allows bypassing the inherent TKey size limit of 1 GiB.
         """
 
-        # abbott Q: Ask nick if this is ok for anchor
         #### Consume any unknown trailing information in the anchor
         unknown, buffer = buffer.consume(buffer.__len__() - 8)
         # The buffer contains exactly and only the anchor bytes (including the checksum)
@@ -135,20 +132,9 @@ class RNTupleAnchor(ROOTSerializable):
         #### Get the checksum (appended to anchor when writing to disk)
         (checksum,), buffer = buffer.unpack(">Q")  # Last 8 bytes of the anchor
 
-        print(f"\033[1;32mDone reading RNTupleAnchor\033[0m {buffer.info()}\n")
         return cls(
             sheader, fVersion, headerLink, footerLink, fMaxKeySize, unknown, checksum
         ), buffer
-
-    def print_info(self):
-        print(
-            "\033[1;35m\n-------------------------------- RNTuple Anchor Info --------------------------------\033[0m"
-        )
-        for var in vars(self).items():
-            print(f"{var}")
-        print(
-            "\033[1;35m------------------------------ End RNTuple Anchor Info ------------------------------\n\033[0m"
-        )
 
 
 DICTIONARY[b"ROOT::RNTuple"] = RNTupleAnchor

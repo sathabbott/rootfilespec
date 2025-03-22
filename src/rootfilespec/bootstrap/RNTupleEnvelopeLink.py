@@ -37,7 +37,6 @@ class RNTupleEnvelopeLink(ROOTSerializable):
     @classmethod
     def read(cls, buffer: ReadBuffer):
         """Reads a RNTuple envelope link from the given buffer."""
-        # print(f"\033[1;36m\tReading RNTupleEnvelopeLink;\033[0m {buffer.info()}")
 
         # All envelope links start with the envelope length
         (length,), buffer = buffer.unpack("<Q")
@@ -45,7 +44,6 @@ class RNTupleEnvelopeLink(ROOTSerializable):
         # Read the locator
         locator, buffer = RNTupleLocator.read(buffer)
 
-        # print(f"\033[1;32m\tDone reading RNTupleEnvelopeLink!\033[0m")
         return cls(length, locator), buffer
 
     def get_buffer(self, fetch_data: DataFetcher):
@@ -56,8 +54,6 @@ class RNTupleEnvelopeLink(ROOTSerializable):
         """Returns whether the envelope is compressed.
         e.g. if the (compressed) size of the envelope is different from the (uncompressed) length of the envelope.
         """
-
-        # abbott Q: this is not polymorphic...
 
         # Check each type of locator for compression
         if self.locator.isStandard:  # Standard locator
@@ -71,11 +67,7 @@ class RNTupleEnvelopeLink(ROOTSerializable):
         """Reads an RNTupleEnvelope from the given buffer."""
         # Load the (possibly compressed) envelope into the buffer
         # This should load exactly the envelope bytes (no more, no less)
-        # buffer = fetch_data(self.offset, self.size)
-
         buffer = self.locator.get_buffer(fetch_data)
-
-        print(f"\033[1;36mAccessing RNTuple Envelope Link;\033[0m {buffer.info()}")
 
         # If compressed, decompress the envelope
         # compressed = None
@@ -100,7 +92,6 @@ class RNTupleEnvelopeLink(ROOTSerializable):
             msg += f"\nBuffer: {buffer}"
             raise ValueError(msg)
 
-        print(f"\033[1;32mDone reading RNTuple Envelope Link!\033[0m {buffer.info()}")
         return envelope
 
 
@@ -134,18 +125,12 @@ class RNTupleLocator(ROOTSerializable):
         get_buffer(fetch_data: DataFetcher) -> ReadBuffer: Returns the buffer for the byte range specified by the locator.
     """
 
-    # abbott TODO: this
-    # isStandard should not be a "data member"
-    # data members = things that are in the file
-    # isStandard should be a property that checks what the subclass
-    # properties appear as attributes but don't appear in the same way in the class
     isStandard: bool
     locatorSubclass: RNTupleStandardLocator | RNTupleNonStandardLocator
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
         """Reads a RNTuple locator from the given buffer."""
-        # print(f"\033[1;36mReading RNTupleLocator;\033[0m {buffer.info()}")
         # Peek (don't update buffer) at the first 32 bit integer in the buffer to determine the locator type
         (sizeType,), _ = buffer.unpack("<i")
 
@@ -155,8 +140,6 @@ class RNTupleLocator(ROOTSerializable):
             locatorSubclass, buffer = RNTupleStandardLocator.read(buffer)
         else:
             locatorSubclass, buffer = RNTupleNonStandardLocator.read(buffer)
-        # print(f"{isStandard=}, {locatorSubclass=}")
-        # print(f"\033[1;32mDone reading RNTupleLocator!\033[0m {buffer.info()}")
         return cls(isStandard, locatorSubclass), buffer
 
     def get_buffer(self, fetch_data: DataFetcher):
@@ -165,9 +148,6 @@ class RNTupleLocator(ROOTSerializable):
 
 
 @dataclass
-# abbott TODO: fix polymorphism here
-# to get to polymorphism, need to provide the class directly
-# e.g. class RNTupleStandardLocator(RNTupleLocator)
 class RNTupleStandardLocator(ROOTSerializable):
     """A class representing a Standard RNTuple Locator.
     A locator is a generalized way to specify a certain byte range on the storage medium.

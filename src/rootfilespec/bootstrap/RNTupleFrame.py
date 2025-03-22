@@ -39,10 +39,8 @@ class FrameHeader(ROOTSerializable):
         nItems = None  # Default value for record frames (no bytes to read)
         if fType == 1:  # List frame
             (nItems,), buffer = buffer.unpack("<I")
-        # print(f"{fSize=}, {fType=}, {nItems=}")
 
         return cls(fSize, fType, nItems), buffer
-        # return cls(fSize, fType), buffer
 
 
 """ Types of record frames used by RNTuple:
@@ -93,9 +91,6 @@ class RNTupleRecordFrame_SchemaExtension(ROOTSerializable):
 
     """
 
-    # abbott TODO: after implementing header envelope, implement schema description class.
-    #         then, convert this function to add onto the schema description.
-
     """ The schema extension record frame contains an additional schema description that is incremental with respect to
             the schema contained in the header (see Section Header Envelope). Specifically, it is a record frame with
             the following four fields (identical to the last four fields in Header Envelope):
@@ -116,10 +111,6 @@ class RNTupleRecordFrame_SchemaExtension(ROOTSerializable):
         This means that columns of the extension header may point to fields of the regular header.
     """
 
-    # For now, just load the header of the record frame, store the payload, and check for unknown trailing information.
-
-    # size: int # The absolute value gives the (uncompressed) size in bytes of the frame and the payload.
-    # # type: int # 0 for a record frame or 1 for a list frame
     fheader: FrameHeader
     payload: bytes
     unknown: bytes | None
@@ -127,10 +118,6 @@ class RNTupleRecordFrame_SchemaExtension(ROOTSerializable):
     @classmethod
     def read(cls, buffer: ReadBuffer):
         """Reads the RNTuple Schema Extension Record Frame from the given buffer."""
-        print(
-            f"\033[1;36m\n\t\tReading RNTuple Schema Extension Record Frame;\033[0m {buffer.info()}"
-        )
-
         #### Read the frame header
         fheader, buffer = FrameHeader.read(buffer)
 
@@ -154,9 +141,6 @@ class RNTupleRecordFrame_SchemaExtension(ROOTSerializable):
         #   Payload Size        = frame length  - 8 bytes for the header
         #   Payload Bytes Read  = buffer.relpos - payload_start_pos
 
-        print(
-            f"\033[1;32m\t\tDone reading RNTuple Schema Extension Record Frame! {fheader}\033[0m"
-        )
         return cls(fheader, payload, unknown), buffer
 
 
@@ -179,9 +163,6 @@ class RNTupleListFrame_ClusterGroups(ROOTSerializable):
     @classmethod
     def read(cls, buffer: ReadBuffer):
         """Reads the RNTuple List Frame of Cluster Groups Record Frames from the given buffer."""
-        print(
-            f"\033[1;36m\n\t\tReading RNTuple List Frame of Cluster Groups Record Frames;\033[0m {buffer.info()}"
-        )
 
         #### Read the frame header
         fheader, buffer = FrameHeader.read(buffer)
@@ -212,9 +193,6 @@ class RNTupleListFrame_ClusterGroups(ROOTSerializable):
         #   Payload Size        = frame length  - 12 bytes for the header
         #   Payload Bytes Read  = buffer.relpos - payload_start_pos
 
-        print(
-            f"\033[1;32m\t\tDone reading RNTuple List Frame of Cluster Group Record Frames!\033[0m {buffer.info()}"
-        )
         return cls(fheader, clusterGroupRecordFrames, unknown), buffer
 
 
@@ -248,9 +226,6 @@ class RNTupleRecordFrame_ClusterGroup(ROOTSerializable):
     @classmethod
     def read(cls, buffer: ReadBuffer):
         """Reads the RNTuple Cluster Group Record Frame from the given buffer."""
-        print(
-            f"\033[1;36m\t\t\tReading RNTuple Cluster Group Record Frame;\033[0m {buffer.info()}"
-        )
 
         #### Read the frame header
         fheader, buffer = FrameHeader.read(buffer)
@@ -274,9 +249,6 @@ class RNTupleRecordFrame_ClusterGroup(ROOTSerializable):
         #   Payload Size        = frame length  - 8 bytes for the header
         #   Payload Bytes Read  = buffer.relpos - payload_start_pos
 
-        print(
-            f"\033[1;32m\t\t\tDone reading RNTuple Cluster Group Record Frame!\033[0m {buffer.info()}"
-        )
         return cls(
             fheader, minEntryNumber, entrySpan, nClusters, pagelistLink, unknown
         ), buffer
@@ -305,9 +277,6 @@ class RNTupleListFrame_ClusterSummaries(ROOTSerializable):
     @classmethod
     def read(cls, buffer: ReadBuffer):
         """Reads the RNTuple List Frame of Cluster Summary Record Frames from the given buffer."""
-        print(
-            f"\033[1;36m\n\t\tReading RNTuple List Frame of Cluster Summary Record Frames;\033[0m {buffer.info()}"
-        )
 
         #### Read the frame header
         fheader, buffer = FrameHeader.read(buffer)
@@ -338,9 +307,6 @@ class RNTupleListFrame_ClusterSummaries(ROOTSerializable):
         #   Payload Size        = frame length  - 12 bytes for the header
         #   Payload Bytes Read  = buffer.relpos - payload_start_pos
 
-        print(
-            f"\033[1;32m\t\tDone reading RNTuple List Frame of Cluster Summary Record Frames!\033[0m {buffer.info()}"
-        )
         return cls(fheader, clusterSummaryRecordFrames, unknown), buffer
 
 
@@ -375,10 +341,6 @@ class RNTupleRecordFrame_ClusterSummary(ROOTSerializable):
     @classmethod
     def read(cls, buffer: ReadBuffer):
         """Reads the RNTuple Cluster Summary Record Frame from the given buffer."""
-        print(
-            f"\033[1;36m\t\t\tReading RNTuple Cluster Summary Record Frame;\033[0m {buffer.info()}"
-        )
-
         #### Read the frame header
         fheader, buffer = FrameHeader.read(buffer)
 
@@ -403,9 +365,6 @@ class RNTupleRecordFrame_ClusterSummary(ROOTSerializable):
         #   Payload Size        = frame length  - 8 bytes for the header
         #   Payload Bytes Read  = buffer.relpos - payload_start_pos
 
-        print(
-            "\033[1;32m\t\t\tDone reading RNTuple Cluster Summary Record Frame!\033[0m"
-        )
         return cls(fheader, firstEntryNumber, nEntries, featureFlag, unknown), buffer
 
 
@@ -438,10 +397,6 @@ class RNTupleListFrame_PageLocations_Clusters(ROOTSerializable):
     @classmethod
     def read(cls, buffer: ReadBuffer):
         """Reads the RNTuple Page Locations Cluster (Top-Most) List Frame from the given buffer."""
-        print(
-            f"\033[1;36m\n\t\tReading RNTuple Page Locations Cluster (Top-Most) List Frame;\033[0m {buffer.info()}"
-        )
-
         #### Read the frame header
         fheader, buffer = FrameHeader.read(buffer)
 
@@ -471,9 +426,6 @@ class RNTupleListFrame_PageLocations_Clusters(ROOTSerializable):
         #   Payload Size        = frame length  - 12 bytes for the header
         #   Payload Bytes Read  = buffer.relpos - payload_start_pos
 
-        print(
-            f"\033[1;32m\t\tDone reading RNTuple Page Locations Cluster (Top-Most) List Frame!\033[0m {buffer.info()}"
-        )
         return cls(fheader, columnListFrames, unknown), buffer
 
     def read_list(
@@ -514,10 +466,6 @@ class RNTupleListFrame_PageLocations_Columns(ROOTSerializable):
     @classmethod
     def read(cls, buffer: ReadBuffer):
         """Reads the RNTuple Page Locations Column (Outer) List Frame from the given buffer."""
-        print(
-            f"\033[1;36m\t\t\tReading RNTuple Page Locations Column (Outer) List Frame;\033[0m {buffer.info()}"
-        )
-
         #### Read the frame header
         fheader, buffer = FrameHeader.read(buffer)
 
@@ -545,9 +493,6 @@ class RNTupleListFrame_PageLocations_Columns(ROOTSerializable):
         #   Payload Size        = frame length  - 12 bytes for the header
         #   Payload Bytes Read  = buffer.relpos - payload_start_pos
 
-        print(
-            f"\033[1;32m\t\t\tDone reading RNTuple Page Locations Column (Outer) List Frame!\033[0m {buffer.info()}"
-        )
         return cls(fheader, pageListFrames, unknown), buffer
 
     def read_list(
@@ -590,7 +535,6 @@ class RNTupleListFrame_PageLocations_Pages(ROOTSerializable):
     Note that there is NO ACTUAL DATA in this envelope! Rather, the page locations are pointers to the actual data!!!
     """
 
-    # abbott TODO: revisit suppressed columns docs after implementing header envelope
     """ Suppressed Columns:
 
     If the element offset in the inner list frame is negative (sign bit set), the column is suppressed.
@@ -619,10 +563,6 @@ class RNTupleListFrame_PageLocations_Pages(ROOTSerializable):
     @classmethod
     def read(cls, buffer: ReadBuffer):
         """Reads the RNTuple Page Locations Page (Inner) List Frame from the given buffer."""
-
-        print(
-            f"\033[1;36m\t\t\t\tReading RNTuple Page Locations Page (Inner) List Frame;\033[0m {buffer.info()}"
-        )
 
         #### Read the frame header
         fheader, buffer = FrameHeader.read(buffer)
@@ -658,9 +598,6 @@ class RNTupleListFrame_PageLocations_Pages(ROOTSerializable):
         #   Payload Size        = frame length  - 12 bytes for the header
         #   Payload Bytes Read  = buffer.relpos - payload_start_pos
 
-        print(
-            f"\033[1;32m\t\t\t\tDone reading RNTuple Page Locations Page (Inner) List Frame!\033[0m {buffer.info()}"
-        )
         return cls(
             fheader,
             pageLocations,
@@ -708,9 +645,6 @@ class RNTuple_PageLocation(ROOTSerializable):
     @classmethod
     def read(cls, buffer: ReadBuffer):
         """Reads the RNTuple Page Location from the given buffer."""
-        print(
-            f"\033[1;36m\t\t\t\t\tReading RNTuple Page Location;\033[0m {buffer.info()}"
-        )
 
         # nElements and hasChecksum are encoded in a single 32 bit signed integer
         (nElements,), buffer = buffer.unpack("<i")
@@ -726,9 +660,6 @@ class RNTuple_PageLocation(ROOTSerializable):
         # Read the locator for the page
         locator, buffer = RNTupleLocator.read(buffer)
 
-        print(
-            f"\033[1;32m\t\t\t\t\tDone reading RNTuple Page Location!\033[0m {buffer.info()}"
-        )
         return cls(nElements, hasChecksum, locator), buffer
 
     def read_page(self, fetch_data: DataFetcher) -> ROOTSerializable:
@@ -736,11 +667,8 @@ class RNTuple_PageLocation(ROOTSerializable):
         Pages are wrapped in compression blocks (like envelopes).
         """
 
-        # abbott: check again after messing with locators
-
         #### Load the (possibly compressed) Page into the buffer
         buffer = self.locator.get_buffer(fetch_data)
-        print(f"\033[1;36m\tReading RNTuple Page Location;\033[0m {buffer.info()}")
 
         #### If compressed, decompress the page
         compressed = None
@@ -759,10 +687,7 @@ class RNTuple_PageLocation(ROOTSerializable):
         # # The size does not include the page checksum, so we need to read it separately
         # if self.hasChecksum:
         #     checksum, buffer = buffer.unpack("<Q")
-        #     # Check the checksum
-        #     # abbott TODO: implement checksum verification? should this be in page?
-        # abbott Q: so the checksum isn't read into memory because it isn't included in the length
-        #       provided in the locator. what is the best practice here?
+        #     # TODO: Check the checksum
 
         # Check that the buffer is empty
         if buffer:
@@ -774,5 +699,4 @@ class RNTuple_PageLocation(ROOTSerializable):
             msg += f"\nBuffer: {buffer}"
             raise ValueError(msg)
 
-        print(f"\033[1;32m\tDone reading RNTuple Page Location!\033[0m {buffer.info()}")
         return page

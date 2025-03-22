@@ -25,7 +25,6 @@ class ReadBuffer:
     local_refs: dict[int, bytes] = dataclasses.field(default_factory=dict)
 
     def __getitem__(self, key: slice) -> ReadBuffer:
-        # print(f"__getitem__ {key=}")
         """Get a slice of the buffer."""
         if key.start > len(self.data):
             msg = f"Cannot get slice {key} from buffer of length {len(self.data)}"
@@ -64,12 +63,10 @@ class ReadBuffer:
         if isinstance(fmt, struct.Struct):
             return fmt.unpack(self.data[: fmt.size]), self[fmt.size :]
         size = struct.calcsize(fmt)
-        # print (f"size={size}, fmt={fmt}, len(self.data)={len(self.data)}")
         return struct.unpack(fmt, self.data[:size]), self[size:]
 
     def consume(self, size: int) -> tuple[bytes, ReadBuffer]:
         """Consume the given number of bytes from the buffer."""
-        # print(f"Consume {size=}, {self.__len__()=}")
         if size > len(self.data):
             msg = f"Cannot consume {size} bytes from buffer of length {len(self.data)}"
             raise IndexError(msg)
@@ -118,17 +115,12 @@ class ROOTSerializable:
 
     @classmethod
     def read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
-        # abbott TODO: update this for frames
-        # look at type  of data for each frame, if it contains a list, then read as a list frame
-        # dont just use list, use a user defined generic type. one for list frame, one for record frame
-        # print(f"\033[3;34mROOTSerializable (type T): Reading {cls.__name__} from buffer...\033[0m")
         args = []
         namespace = get_type_hints(cls)
         # iterate over the fields of the class (like attributes but we haven't instantiated the class yet)
         for field in dataclasses.fields(cls):  # type: ignore[arg-type]
             ftype = namespace[field.name]
             if issubclass(ftype, ROOTSerializable):
-                # print(f"\033[3;34m\tReading field {field.name} of type {ftype}...\033[0m")
                 arg, buffer = ftype.read(buffer)
             else:
                 msg = f"Cannot read field {field.name} of type {ftype}"
@@ -164,7 +156,6 @@ class StructClass(ROOTSerializable):
 
     @classmethod
     def read(cls: type[S], buffer: ReadBuffer) -> tuple[S, ReadBuffer]:
-        # print(f"\033[3;34mStructClass (type S): Reading {cls.__name__} from buffer...\033[0m")
         args, buffer = buffer.unpack(cls._struct)
         return cls(*args), buffer
 
