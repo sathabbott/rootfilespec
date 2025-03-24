@@ -136,6 +136,7 @@ def build(cls: type[T]) -> type[T]:
                 ftype, *annotations = get_args(ftype)
                 fmt = next((a for a in annotations if isinstance(a, Fmt)), None)
                 if fmt:
+                    # TODO: potential optimization: consecutive struct fields could be read in one struct.unpack call
                     constructors.append(partial(fmt.read_as, ftype))
                 else:
                     msg = f"Cannot read field {field.name} of type {ftype} with annotations {annotations}"

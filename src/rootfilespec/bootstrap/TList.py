@@ -23,7 +23,7 @@ class TList(ROOTSerializable):
     header: TObject
     fName: TString
     fN: int
-    items: list[ROOTSerializable]
+    items: list[TObject]
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
@@ -36,9 +36,13 @@ class TList(ROOTSerializable):
             return cls(header, TString(junk), 0, []), buffer
         fName, buffer = TString.read(buffer)
         (fN,), buffer = buffer.unpack(">i")
-        items: list[ROOTSerializable] = []
+        items: list[TObject] = []
         for _ in range(fN):
             item, buffer = read_streamed_item(buffer)
+            if not isinstance(item, TObject):
+                # TODO: not sure if this is guaranteed to be true
+                msg = f"Expected TObject but got {item!r}"
+                raise ValueError(msg)
             # No idea why there is a null pad byte here
             pad, buffer = buffer.consume(1)
             if pad != b"\x00":
@@ -58,7 +62,7 @@ class TObjArray(ROOTSerializable):
     fName: TString
     nObjects: int
     fLowerBound: int
-    objects: list[ROOTSerializable]
+    objects: list[TObject]
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
@@ -66,9 +70,12 @@ class TObjArray(ROOTSerializable):
         b_object, buffer = TObject.read(buffer)
         fName, buffer = TString.read(buffer)
         (nObjects, fLowerBound), buffer = buffer.unpack(">ii")
-        objects: list[ROOTSerializable] = []
+        objects: list[TObject] = []
         for _ in range(nObjects):
             item, buffer = read_streamed_item(buffer)
+            if not isinstance(item, TObject):
+                msg = f"Expected TObject but got {item!r}"
+                raise ValueError(msg)
             objects.append(item)
         return cls(sheader, b_object, fName, nObjects, fLowerBound, objects), buffer
 
