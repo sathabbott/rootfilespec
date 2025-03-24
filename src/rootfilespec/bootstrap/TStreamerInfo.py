@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from ..structutil import (
+    Fmt,
     ReadBuffer,
     ROOTSerializable,
     StructClass,
@@ -67,10 +70,10 @@ class TStreamerElement_header(ROOTSerializable):
         fMaxIndex (int[5]): Five integers giving the array dimensions (0 if not applicable)
     """
 
-    fType: int = sfield("i")
-    fSize: int = sfield("i")
-    fArrayLength: int = sfield("i")
-    fArrayDim: int = sfield("i")
+    fType: Annotated[int, Fmt(">i")]
+    fSize: Annotated[int, Fmt(">i")]
+    fArrayLength: Annotated[int, Fmt(">i")]
+    fArrayDim: Annotated[int, Fmt(">i")]
     fMaxIndex: list[int] = sfield("5i")
 
     @classmethod
@@ -104,14 +107,7 @@ class TStreamerBase(ROOTSerializable):
 
     sheader: StreamHeader
     b_element: TStreamerElement
-    fBaseVersion: int
-
-    @classmethod
-    def read(cls, buffer: ReadBuffer):
-        sheader, buffer = StreamHeader.read(buffer)
-        b_element, buffer = TStreamerElement.read(buffer)
-        (fBaseVersion,), buffer = buffer.unpack(">i")
-        return cls(sheader, b_element, fBaseVersion), buffer
+    fBaseVersion: Annotated[int, Fmt(">i")]
 
 
 DICTIONARY[b"TStreamerBase"] = TStreamerBase
@@ -149,18 +145,9 @@ class TStreamerBasicPointer(ROOTSerializable):
 
     sheader: StreamHeader
     b_element: TStreamerElement
-    fCountVersion: int
+    fCountVersion: Annotated[int, Fmt(">i")]
     fCountName: TString
     fCountClass: TString
-
-    @classmethod
-    def read(cls, buffer: ReadBuffer):
-        sheader, buffer = StreamHeader.read(buffer)
-        b_element, buffer = TStreamerElement.read(buffer)
-        (fCountVersion,), buffer = buffer.unpack(">i")
-        fCountName, buffer = TString.read(buffer)
-        fCountClass, buffer = TString.read(buffer)
-        return cls(sheader, b_element, fCountVersion, fCountName, fCountClass), buffer
 
 
 DICTIONARY[b"TStreamerBasicPointer"] = TStreamerBasicPointer
@@ -198,18 +185,9 @@ class TStreamerLoop(ROOTSerializable):
 
     sheader: StreamHeader
     b_element: TStreamerElement
-    fCountVersion: int
+    fCountVersion: Annotated[int, Fmt(">i")]
     fCountName: TString
     fCountClass: TString
-
-    @classmethod
-    def read(cls, buffer: ReadBuffer):
-        sheader, buffer = StreamHeader.read(buffer)
-        b_element, buffer = TStreamerElement.read(buffer)
-        (fCountVersion,), buffer = buffer.unpack(">i")
-        fCountName, buffer = TString.read(buffer)
-        fCountClass, buffer = TString.read(buffer)
-        return cls(sheader, b_element, fCountVersion, fCountName, fCountClass), buffer
 
 
 DICTIONARY[b"TStreamerLoop"] = TStreamerLoop
@@ -240,15 +218,8 @@ class TStreamerSTL(ROOTSerializable):
 
     sheader: StreamHeader
     b_element: TStreamerElement
-    fSTLtype: int
-    fCType: int
-
-    @classmethod
-    def read(cls, buffer: ReadBuffer):
-        sheader, buffer = StreamHeader.read(buffer)
-        b_element, buffer = TStreamerElement.read(buffer)
-        (fSTLtype, fCType), buffer = buffer.unpack(">ii")
-        return cls(sheader, b_element, fSTLtype, fCType), buffer
+    fSTLtype: Annotated[int, Fmt(">i")]
+    fCType: Annotated[int, Fmt(">i")]
 
 
 DICTIONARY[b"TStreamerSTL"] = TStreamerSTL
@@ -262,7 +233,7 @@ class TStreamerSTLString(ROOTSerializable):
         sheader (StreamHeader): Stream header.
         b_element (TStreamerElement): Base streamer element.
         uninterpreted (bytes): Uninterpreted data.
-            According to ROOT docs, there should not be any extra data here
+            TODO: According to ROOT docs, there should not be any extra data here
     """
 
     sheader: StreamHeader

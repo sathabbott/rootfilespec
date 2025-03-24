@@ -13,7 +13,7 @@ from typing import (
     get_type_hints,
 )
 
-from typing_extensions import dataclass_transform  # available in Python 3.11+
+from typing_extensions import dataclass_transform  # in typing for Python 3.11+
 
 
 @dataclasses.dataclass
