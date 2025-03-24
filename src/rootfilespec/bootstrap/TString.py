@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-from ..structutil import ReadBuffer, ROOTSerializable
+from ..structutil import ReadBuffer, ROOTSerializable, build
 
 
-@dataclass
+@build
 class TString(ROOTSerializable):
     fString: bytes
 

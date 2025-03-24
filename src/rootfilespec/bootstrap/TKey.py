@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from ..structutil import (
     DataFetcher,
     ReadBuffer,
     ROOTSerializable,
     StructClass,
+    build,
     sfield,
     structify,
 )
@@ -18,7 +17,6 @@ DICTIONARY: dict[bytes, type[ROOTSerializable]] = {}
 
 
 @structify(big_endian=True)
-@dataclass
 class TKey_header(StructClass):
     """TKey header information
 
@@ -43,7 +41,7 @@ class TKey_header(StructClass):
         return fDatime_to_datetime(self.fDatime)
 
 
-@dataclass
+@build
 class TKey(ROOTSerializable):
     """TKey object
 

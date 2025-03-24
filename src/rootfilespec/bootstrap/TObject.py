@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import IntEnum
 
 from ..structutil import (
     ReadBuffer,
     ROOTSerializable,
     StructClass,
+    build,
     sfield,
     structify,
 )
@@ -36,7 +36,6 @@ class fBits(IntEnum):
 
 
 @structify(big_endian=True)
-@dataclass
 class TObject_header(StructClass):
     """Header data for TObject class.
 
@@ -55,7 +54,7 @@ class TObject_header(StructClass):
         return bool(self.fBits & fBits.kIsReferenced)
 
 
-@dataclass
+@build
 class TObject(ROOTSerializable):
     """Format for TObject class.
 
@@ -88,7 +87,7 @@ class TObject(ROOTSerializable):
 DICTIONARY[b"TObject"] = TObject
 
 
-@dataclass
+@build
 class TNamed(ROOTSerializable):
     """Format for TNamed class.
 

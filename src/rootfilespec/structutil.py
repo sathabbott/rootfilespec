@@ -2,7 +2,18 @@ from __future__ import annotations
 
 import dataclasses
 import struct
-from typing import Any, Callable, TypeVar, get_type_hints
+from functools import partial
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    TypeVar,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
+
+from typing_extensions import dataclass_transform  # available in Python 3.11+
 
 
 @dataclasses.dataclass
@@ -58,6 +69,9 @@ class ReadBuffer:
             )
         )
 
+    def __bool__(self) -> bool:
+        return bool(self.data)
+
     def unpack(self, fmt: str | struct.Struct) -> tuple[tuple[Any, ...], ReadBuffer]:
         """Unpack the buffer according to the given format."""
         if isinstance(fmt, struct.Struct):
@@ -71,24 +85,85 @@ class ReadBuffer:
 
 
 DataFetcher = Callable[[int, int], ReadBuffer]
+ReadMethod = Callable[[ReadBuffer], tuple[Any, ReadBuffer]]
+OutType = TypeVar("OutType")
+
+
+class Fmt:
+    """A class to hold the format of a field."""
+
+    def __init__(self, fmt: str):
+        self.fmt = fmt
+
+    def __repr__(self) -> str:
+        return f"Fmt({self.fmt})"
+
+    def read_as(
+        self, outtype: type[OutType], buffer: ReadBuffer
+    ) -> tuple[OutType, ReadBuffer]:
+        args, buffer = buffer.unpack(self.fmt)
+        return outtype(*args), buffer
+
 
 T = TypeVar("T", bound="ROOTSerializable")
 
 
+@dataclass_transform()
+def build(cls: type[T]) -> type[T]:
+    """A decorator to add a read method to a class that reads its fields from a buffer.
+
+    The class must have type hints for its fields, and the fields must be of types that
+    either have a read method or are subscripted with a Fmt object.
+    """
+    cls = dataclasses.dataclass(cls)
+
+    # if the class already has a read method, don't overwrite it
+    readmethod = getattr(cls, "read", None)
+    if (
+        readmethod
+        and getattr(readmethod, "__func__", None) is not ROOTSerializable.read.__func__  # type: ignore[attr-defined]
+    ):
+        return cls
+
+    constructors: list[ReadMethod] = []
+    namespace = get_type_hints(cls, include_extras=True)
+    for field in dataclasses.fields(cls):
+        ftype = namespace[field.name]
+        if isinstance(ftype, type) and issubclass(ftype, ROOTSerializable):
+            constructors.append(ftype.read)
+        elif origin := get_origin(ftype):
+            if origin is Annotated:
+                ftype, *annotations = get_args(ftype)
+                fmt = next((a for a in annotations if isinstance(a, Fmt)), None)
+                if fmt:
+                    constructors.append(partial(fmt.read_as, ftype))
+                else:
+                    msg = f"Cannot read field {field.name} of type {ftype} with annotations {annotations}"
+                    raise NotImplementedError(msg)
+            else:
+                msg = f"Cannot read field {field.name} of subscripted type {ftype} with origin {origin}"
+                raise NotImplementedError(msg)
+        else:
+            msg = f"Cannot read field {field.name} of type {ftype}"
+            raise NotImplementedError(msg)
+
+    @classmethod  # type: ignore[misc]
+    def read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
+        args = []
+        for constructor in constructors:
+            arg, buffer = constructor(buffer)
+            args.append(arg)
+        return cls(*args), buffer
+
+    cls.read = read  # type: ignore[assignment]
+    return cls
+
+
+@dataclasses.dataclass
 class ROOTSerializable:
     @classmethod
     def read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
-        args = []
-        namespace = get_type_hints(cls)
-        for field in dataclasses.fields(cls):  # type: ignore[arg-type]
-            ftype = namespace[field.name]
-            if issubclass(ftype, ROOTSerializable):
-                arg, buffer = ftype.read(buffer)
-            else:
-                msg = f"Cannot read field {field.name} of type {ftype}"
-                raise NotImplementedError(msg)
-            args.append(arg)
-        return cls(*args), buffer
+        raise NotImplementedError
 
 
 S = TypeVar("S", bound="StructClass")
@@ -96,10 +171,6 @@ S = TypeVar("S", bound="StructClass")
 
 class StructClass(ROOTSerializable):
     _struct: struct.Struct
-
-    @classmethod
-    def size(cls) -> int:
-        return cls._struct.size
 
     @classmethod
     def read(cls: type[S], buffer: ReadBuffer) -> tuple[S, ReadBuffer]:
@@ -112,7 +183,8 @@ def structify(big_endian: bool):
 
     endianness = ">" if big_endian else "<"
 
-    def decorator(cls):
+    def decorator(cls: type[S]) -> type[S]:
+        cls = dataclasses.dataclass(cls)
         fmt = "".join(f.metadata["format"] for f in dataclasses.fields(cls))
         cls._struct = struct.Struct(endianness + fmt)
         return cls

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
 
 from ..structutil import (
     DataFetcher,
     ReadBuffer,
     ROOTSerializable,
     StructClass,
+    build,
     sfield,
     structify,
 )
@@ -34,7 +34,6 @@ Format of a TDirectory record in release 3.02.06. It is never compressed.
 
 
 @structify(big_endian=True)
-@dataclass
 class TDirectory_header_v622(StructClass):
     """Format of a TDirectory record in release 6.22.06. It is never compressed.
 
@@ -63,7 +62,7 @@ class TDirectory_header_v622(StructClass):
         return fDatime_to_datetime(self.fDatimeM)
 
 
-@dataclass
+@build
 class TDirectory(ROOTSerializable):
     """TDirectory object
 
@@ -119,7 +118,7 @@ class TDirectory(ROOTSerializable):
 DICTIONARY[b"TDirectory"] = TDirectory
 
 
-@dataclass
+@build
 class TKeyList(ROOTSerializable, Mapping[str, TKey]):
     fKeys: list[TKey]
     padding: bytes

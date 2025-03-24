@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-from ..structutil import ReadBuffer, ROOTSerializable
+from ..structutil import ReadBuffer, ROOTSerializable, build
 from .streamedobject import StreamHeader, read_streamed_item
 from .TKey import DICTIONARY
 from .TObject import TObject
 from .TString import TString
 
 
-@dataclass
+@build
 class TList(ROOTSerializable):
     """Format for TList class.
 
@@ -53,7 +51,7 @@ class TList(ROOTSerializable):
 DICTIONARY[b"TList"] = TList
 
 
-@dataclass
+@build
 class TObjArray(ROOTSerializable):
     sheader: StreamHeader
     b_object: TObject

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from uuid import UUID
 
-from ..structutil import ReadBuffer, ROOTSerializable
+from ..structutil import ReadBuffer, ROOTSerializable, build
 
 
-@dataclass
+@build
 class TUUID(ROOTSerializable):
     fVersion: int
     fUUID: UUID

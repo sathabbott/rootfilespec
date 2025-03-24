@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Protocol
 
 import cramjam  # type: ignore[import-not-found]
@@ -9,13 +8,13 @@ from ..structutil import (
     ReadBuffer,
     ROOTSerializable,
     StructClass,
+    build,
     sfield,
     structify,
 )
 
 
 @structify(big_endian=True)
-@dataclass
 class RCompressionHeader(StructClass):
     """The header of a compressed data payload.
 
@@ -63,7 +62,7 @@ def get_decompressor(algorithm: bytes) -> Decompressor:
     raise NotImplementedError(msg)
 
 
-@dataclass
+@build
 class RCompressed(ROOTSerializable):
     """A compressed data payload.
 

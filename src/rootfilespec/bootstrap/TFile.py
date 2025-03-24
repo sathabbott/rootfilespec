@@ -7,6 +7,7 @@ from ..structutil import (
     ReadBuffer,
     ROOTSerializable,
     StructClass,
+    build,
     sfield,
     structify,
 )
@@ -36,7 +37,6 @@ class VersionInfo(ROOTSerializable):
 
 
 @structify(big_endian=True)
-@dataclass
 class ROOTFile_header_v302(StructClass):
     """
     A class representing the header structure for ROOTFile version 3.02.06
@@ -70,7 +70,6 @@ class ROOTFile_header_v302(StructClass):
 
 
 @structify(big_endian=True)
-@dataclass
 class ROOTFile_header_v622_small(StructClass):
     """
     A class representing the header structure for ROOTFile version 6.22.06
@@ -105,7 +104,6 @@ class ROOTFile_header_v622_small(StructClass):
 
 
 @structify(big_endian=True)
-@dataclass
 class ROOTFile_header_v622_large(StructClass):
     __doc__ = ROOTFile_header_v622_small.__doc__
 
@@ -121,7 +119,7 @@ class ROOTFile_header_v622_large(StructClass):
     fNbytesInfo: int = sfield("i")
 
 
-@dataclass
+@build
 class ROOTFile(ROOTSerializable):
     magic: bytes
     fVersion: VersionInfo
@@ -179,7 +177,7 @@ class ROOTFile(ROOTSerializable):
         return key.read_object(fetch_cached)  # type: ignore[no-any-return]
 
 
-@dataclass
+@build
 class TFile(ROOTSerializable):
     """The TFile object is a TDirectory with an extra name and title field.
 

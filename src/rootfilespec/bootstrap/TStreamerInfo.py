@@ -1,8 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-from ..structutil import ReadBuffer, ROOTSerializable, StructClass, sfield, structify
+from ..structutil import (
+    ReadBuffer,
+    ROOTSerializable,
+    StructClass,
+    build,
+    sfield,
+    structify,
+)
 from .streamedobject import StreamHeader
 from .TKey import DICTIONARY
 from .TList import TObjArray
@@ -11,13 +16,12 @@ from .TString import TString
 
 
 @structify(big_endian=True)
-@dataclass
 class TStreamerInfo_header(StructClass):
     fCheckSum: int = sfield("i")
     fClassVersion: int = sfield("i")
 
 
-@dataclass
+@build
 class TStreamerInfo(ROOTSerializable):
     sheader: StreamHeader
     b_named: TNamed
@@ -28,7 +32,7 @@ class TStreamerInfo(ROOTSerializable):
 DICTIONARY[b"TStreamerInfo"] = TStreamerInfo
 
 
-@dataclass
+@build
 class TStreamerElement_header(ROOTSerializable):
     """Header data for TStreamerElement class.
 
@@ -77,7 +81,7 @@ class TStreamerElement_header(ROOTSerializable):
         return cls(fType, fSize, fArrayLength, fArrayDim, fMaxIndex), buffer
 
 
-@dataclass
+@build
 class TStreamerElement(ROOTSerializable):
     sheader: StreamHeader
     b_named: TNamed
@@ -88,7 +92,7 @@ class TStreamerElement(ROOTSerializable):
 DICTIONARY[b"TStreamerElement"] = TStreamerElement
 
 
-@dataclass
+@build
 class TStreamerBase(ROOTSerializable):
     """Streamer element for a base class.
 
@@ -113,7 +117,7 @@ class TStreamerBase(ROOTSerializable):
 DICTIONARY[b"TStreamerBase"] = TStreamerBase
 
 
-@dataclass
+@build
 class TStreamerBasicType(ROOTSerializable):
     sheader: StreamHeader
     b_element: TStreamerElement
@@ -122,7 +126,7 @@ class TStreamerBasicType(ROOTSerializable):
 DICTIONARY[b"TStreamerBasicType"] = TStreamerBasicType
 
 
-@dataclass
+@build
 class TStreamerString(ROOTSerializable):
     sheader: StreamHeader
     b_element: TStreamerElement
@@ -131,7 +135,7 @@ class TStreamerString(ROOTSerializable):
 DICTIONARY[b"TStreamerString"] = TStreamerString
 
 
-@dataclass
+@build
 class TStreamerBasicPointer(ROOTSerializable):
     """Streamer element for a pointer to a built in type.
 
@@ -162,7 +166,7 @@ class TStreamerBasicPointer(ROOTSerializable):
 DICTIONARY[b"TStreamerBasicPointer"] = TStreamerBasicPointer
 
 
-@dataclass
+@build
 class TStreamerObject(ROOTSerializable):
     sheader: StreamHeader
     b_element: TStreamerElement
@@ -171,7 +175,7 @@ class TStreamerObject(ROOTSerializable):
 DICTIONARY[b"TStreamerObject"] = TStreamerObject
 
 
-@dataclass
+@build
 class TStreamerObjectPointer(ROOTSerializable):
     sheader: StreamHeader
     b_element: TStreamerElement
@@ -180,7 +184,7 @@ class TStreamerObjectPointer(ROOTSerializable):
 DICTIONARY[b"TStreamerObjectPointer"] = TStreamerObjectPointer
 
 
-@dataclass
+@build
 class TStreamerLoop(ROOTSerializable):
     """Loop streamer element.
 
@@ -211,7 +215,7 @@ class TStreamerLoop(ROOTSerializable):
 DICTIONARY[b"TStreamerLoop"] = TStreamerLoop
 
 
-@dataclass
+@build
 class TStreamerObjectAny(ROOTSerializable):
     sheader: StreamHeader
     b_element: TStreamerElement
@@ -220,7 +224,7 @@ class TStreamerObjectAny(ROOTSerializable):
 DICTIONARY[b"TStreamerObjectAny"] = TStreamerObjectAny
 
 
-@dataclass
+@build
 class TStreamerSTL(ROOTSerializable):
     """STL container streamer element.
 
@@ -250,7 +254,7 @@ class TStreamerSTL(ROOTSerializable):
 DICTIONARY[b"TStreamerSTL"] = TStreamerSTL
 
 
-@dataclass
+@build
 class TStreamerSTLString(ROOTSerializable):
     """STL string streamer element.
 
