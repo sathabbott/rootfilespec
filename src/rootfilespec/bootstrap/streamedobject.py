@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import IntEnum
 
-from ..structutil import ReadBuffer, ROOTSerializable, build
+from ..structutil import ReadBuffer, ROOTSerializable, serializable
 from .TKey import DICTIONARY
 
 
@@ -22,7 +22,7 @@ class constants(IntEnum):
     kNotAVersion = 0x8000
 
 
-@build
+@serializable
 class StreamHeader(ROOTSerializable):
     """Initial header for any streamed data object
 

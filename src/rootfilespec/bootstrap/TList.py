@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from ..structutil import ReadBuffer, ROOTSerializable, build
+from ..structutil import ReadBuffer, ROOTSerializable, serializable
 from .streamedobject import StreamHeader, read_streamed_item
 from .TKey import DICTIONARY
 from .TObject import TObject
 from .TString import TString
 
 
-@build
+@serializable
 class TList(ROOTSerializable):
     """Format for TList class.
 
@@ -40,7 +40,6 @@ class TList(ROOTSerializable):
         for _ in range(fN):
             item, buffer = read_streamed_item(buffer)
             if not isinstance(item, TObject):
-                # TODO: not sure if this is guaranteed to be true
                 msg = f"Expected TObject but got {item!r}"
                 raise ValueError(msg)
             # No idea why there is a null pad byte here
@@ -55,7 +54,7 @@ class TList(ROOTSerializable):
 DICTIONARY[b"TList"] = TList
 
 
-@build
+@serializable
 class TObjArray(ROOTSerializable):
     sheader: StreamHeader
     b_object: TObject

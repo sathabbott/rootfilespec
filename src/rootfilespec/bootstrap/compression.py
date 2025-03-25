@@ -8,7 +8,7 @@ from ..structutil import (
     ReadBuffer,
     ROOTSerializable,
     StructClass,
-    build,
+    serializable,
     sfield,
     structify,
 )
@@ -62,7 +62,7 @@ def get_decompressor(algorithm: bytes) -> Decompressor:
     raise NotImplementedError(msg)
 
 
-@build
+@serializable
 class RCompressed(ROOTSerializable):
     """A compressed data payload.
 

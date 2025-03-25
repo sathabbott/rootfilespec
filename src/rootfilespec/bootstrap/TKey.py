@@ -5,7 +5,7 @@ from ..structutil import (
     ReadBuffer,
     ROOTSerializable,
     StructClass,
-    build,
+    serializable,
     sfield,
     structify,
 )
@@ -41,7 +41,7 @@ class TKey_header(StructClass):
         return fDatime_to_datetime(self.fDatime)
 
 
-@build
+@serializable
 class TKey(ROOTSerializable):
     """TKey object
 

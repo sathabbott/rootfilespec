@@ -7,7 +7,7 @@ from ..structutil import (
     ReadBuffer,
     ROOTSerializable,
     StructClass,
-    build,
+    serializable,
     sfield,
     structify,
 )
@@ -119,7 +119,7 @@ class ROOTFile_header_v622_large(StructClass):
     fNbytesInfo: int = sfield("i")
 
 
-@build
+@serializable
 class ROOTFile(ROOTSerializable):
     magic: bytes
     fVersion: VersionInfo
@@ -177,7 +177,7 @@ class ROOTFile(ROOTSerializable):
         return key.read_object(fetch_cached)  # type: ignore[no-any-return]
 
 
-@build
+@serializable
 class TFile(ROOTSerializable):
     """The TFile object is a TDirectory with an extra name and title field.
 

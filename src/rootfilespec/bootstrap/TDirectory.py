@@ -7,7 +7,7 @@ from ..structutil import (
     ReadBuffer,
     ROOTSerializable,
     StructClass,
-    build,
+    serializable,
     sfield,
     structify,
 )
@@ -62,7 +62,7 @@ class TDirectory_header_v622(StructClass):
         return fDatime_to_datetime(self.fDatimeM)
 
 
-@build
+@serializable
 class TDirectory(ROOTSerializable):
     """TDirectory object
 
@@ -118,7 +118,7 @@ class TDirectory(ROOTSerializable):
 DICTIONARY[b"TDirectory"] = TDirectory
 
 
-@build
+@serializable
 class TKeyList(ROOTSerializable, Mapping[str, TKey]):
     fKeys: list[TKey]
     padding: bytes

@@ -6,7 +6,7 @@ from ..structutil import (
     ReadBuffer,
     ROOTSerializable,
     StructClass,
-    build,
+    serializable,
     sfield,
     structify,
 )
@@ -54,7 +54,7 @@ class TObject_header(StructClass):
         return bool(self.fBits & fBits.kIsReferenced)
 
 
-@build
+@serializable
 class TObject(ROOTSerializable):
     """Format for TObject class.
 
@@ -87,7 +87,7 @@ class TObject(ROOTSerializable):
 DICTIONARY[b"TObject"] = TObject
 
 
-@build
+@serializable
 class TNamed(ROOTSerializable):
     """Format for TNamed class.
 

@@ -108,8 +108,15 @@ class Fmt:
 T = TypeVar("T", bound="ROOTSerializable")
 
 
+@dataclasses.dataclass
+class ROOTSerializable:
+    @classmethod
+    def read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
+        raise NotImplementedError
+
+
 @dataclass_transform()
-def build(cls: type[T]) -> type[T]:
+def serializable(cls: type[T]) -> type[T]:
     """A decorator to add a read method to a class that reads its fields from a buffer.
 
     The class must have type hints for its fields, and the fields must be of types that
@@ -158,13 +165,6 @@ def build(cls: type[T]) -> type[T]:
 
     cls.read = read  # type: ignore[assignment]
     return cls
-
-
-@dataclasses.dataclass
-class ROOTSerializable:
-    @classmethod
-    def read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
-        raise NotImplementedError
 
 
 S = TypeVar("S", bound="StructClass")
