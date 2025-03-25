@@ -4,7 +4,7 @@ from typing import Protocol
 
 import cramjam  # type: ignore[import-not-found]
 
-from ..structutil import (
+from rootfilespec.structutil import (
     ReadBuffer,
     ROOTSerializable,
     StructClass,

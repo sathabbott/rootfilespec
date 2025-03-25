@@ -6,6 +6,6 @@ rootfilespec: A format specification for ROOT files
 
 from __future__ import annotations
 
-from ._version import version as __version__
+from rootfilespec._version import version as __version__
 
 __all__ = ["__version__"]

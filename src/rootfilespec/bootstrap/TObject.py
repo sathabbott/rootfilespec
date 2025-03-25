@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from enum import IntEnum
 
-from ..structutil import (
+from rootfilespec.bootstrap.streamedobject import StreamHeader
+from rootfilespec.bootstrap.TKey import DICTIONARY
+from rootfilespec.bootstrap.TString import TString
+from rootfilespec.structutil import (
     ReadBuffer,
     ROOTSerializable,
     StructClass,
@@ -10,9 +13,6 @@ from ..structutil import (
     sfield,
     structify,
 )
-from .streamedobject import StreamHeader
-from .TKey import DICTIONARY
-from .TString import TString
 
 
 class fBits(IntEnum):

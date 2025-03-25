@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from enum import IntEnum
 
-from ..structutil import ReadBuffer, ROOTSerializable, serializable
-from .TKey import DICTIONARY
+from rootfilespec.bootstrap.TKey import DICTIONARY
+from rootfilespec.structutil import ReadBuffer, ROOTSerializable, serializable
 
 
 class constants(IntEnum):

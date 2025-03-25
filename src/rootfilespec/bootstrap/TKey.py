@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from ..structutil import (
+from typing import TypeVar, overload
+
+from rootfilespec.bootstrap.compression import RCompressed
+from rootfilespec.bootstrap.TString import TString
+from rootfilespec.bootstrap.util import fDatime_to_datetime
+from rootfilespec.structutil import (
     DataFetcher,
     ReadBuffer,
     ROOTSerializable,
@@ -9,9 +14,6 @@ from ..structutil import (
     sfield,
     structify,
 )
-from .compression import RCompressed
-from .TString import TString
-from .util import fDatime_to_datetime
 
 DICTIONARY: dict[bytes, type[ROOTSerializable]] = {}
 
@@ -39,6 +41,9 @@ class TKey_header(StructClass):
     def write_time(self):
         """Date and time when record was written to file"""
         return fDatime_to_datetime(self.fDatime)
+
+
+ObjType = TypeVar("ObjType", bound=ROOTSerializable)
 
 
 @serializable
@@ -82,11 +87,19 @@ class TKey(ROOTSerializable):
         """Return if the key is short (i.e. the seeks are 32 bit)"""
         return self.header.fVersion < 1000
 
+    @overload
+    def read_object(self, fetch_data: DataFetcher) -> ROOTSerializable: ...
+
+    @overload
+    def read_object(
+        self, fetch_data: DataFetcher, objtype: type[ObjType]
+    ) -> ObjType: ...
+
     def read_object(
         self,
         fetch_data: DataFetcher,
-        objtype: type[ROOTSerializable] | None = None,
-    ) -> ROOTSerializable:
+        objtype: type[ObjType] | None = None,
+    ) -> ObjType | ROOTSerializable:
         buffer = fetch_data(
             self.fSeekKey + self.header.fKeylen,
             self.header.fNbytes - self.header.fKeylen,
@@ -112,10 +125,13 @@ class TKey(ROOTSerializable):
             )
         if objtype is not None:
             typename = objtype.__name__.encode("ascii")
+            # if self.fClassName.fString != typename:
+            #     msg = f"TKey.read_object: type mismatch: expected {typename!r} but got {self.fClassName.fString!r}"
+            #     raise ValueError(msg)
             obj, buffer = objtype.read(buffer)
         else:
             typename = self.fClassName.fString
-            obj, buffer = DICTIONARY[typename].read(buffer)
+            obj, buffer = DICTIONARY[typename].read(buffer)  # type: ignore[assignment]
         if buffer:
             msg = f"TKey.read_object: buffer not empty after reading object of type {typename!r}."
             msg += f"\n{self=}"

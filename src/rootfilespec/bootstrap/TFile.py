@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..structutil import (
+from rootfilespec.bootstrap.TDirectory import TDirectory
+from rootfilespec.bootstrap.TKey import DICTIONARY, TKey
+from rootfilespec.bootstrap.TList import TList
+from rootfilespec.bootstrap.TString import TString
+from rootfilespec.bootstrap.TUUID import TUUID
+from rootfilespec.structutil import (
     DataFetcher,
     ReadBuffer,
     ROOTSerializable,
@@ -11,11 +16,6 @@ from ..structutil import (
     sfield,
     structify,
 )
-from .TDirectory import TDirectory
-from .TKey import DICTIONARY, TKey
-from .TList import TList
-from .TString import TString
-from .TUUID import TUUID
 
 
 @dataclass(order=True)
@@ -148,7 +148,7 @@ class ROOTFile(ROOTSerializable):
         padding, buffer = buffer.consume(header.fBEGIN - buffer.relpos)
         return cls(magic, fVersion, header, uuid, padding), buffer
 
-    def get_TFile(self, fetch_data: DataFetcher) -> TFile:
+    def get_TFile(self, fetch_data: DataFetcher):
         """Get the TFile object (root directory) from the file."""
         buffer = fetch_data(self.header.fBEGIN, self.header.fNbytesName)
         key, buffer = TKey.read(buffer)
@@ -158,9 +158,9 @@ class ROOTFile(ROOTSerializable):
         if key.fSeekPdir != 0:
             msg = f"ROOTFile.read_rootkey: key.fSeekPdir != 0: {key.fSeekPdir} != 0"
             raise ValueError(msg)
-        return key.read_object(fetch_data)  # type: ignore[no-any-return]
+        return key.read_object(fetch_data, objtype=TFile)
 
-    def get_StreamerInfo(self, fetch_data: DataFetcher) -> TList:
+    def get_StreamerInfo(self, fetch_data: DataFetcher):
         buffer = fetch_data(self.header.fSeekInfo, self.header.fNbytesInfo)
         key, _ = TKey.read(buffer)
         if key.fSeekKey != self.header.fSeekInfo:
@@ -174,7 +174,7 @@ class ROOTFile(ROOTSerializable):
             seek -= self.header.fSeekInfo
             return buffer[seek : seek + size]
 
-        return key.read_object(fetch_cached)  # type: ignore[no-any-return]
+        return key.read_object(fetch_cached, objtype=TList)
 
 
 @serializable

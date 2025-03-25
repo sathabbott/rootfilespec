@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from ..structutil import (
+from rootfilespec.bootstrap.TKey import DICTIONARY, TKey
+from rootfilespec.bootstrap.TUUID import TUUID
+from rootfilespec.bootstrap.util import fDatime_to_datetime
+from rootfilespec.structutil import (
     DataFetcher,
     ReadBuffer,
     ROOTSerializable,
@@ -11,9 +14,6 @@ from ..structutil import (
     sfield,
     structify,
 )
-from .TKey import DICTIONARY, TKey
-from .TUUID import TUUID
-from .util import fDatime_to_datetime
 
 """
 TODO: TDirectory for ROOT 3.02.06
@@ -93,7 +93,7 @@ class TDirectory(ROOTSerializable):
             buffer = buffer[12:]
         return cls(header, fSeekDir, fSeekParent, fSeekKeys, fUUID), buffer
 
-    def get_KeyList(self, fetch_data: DataFetcher) -> TKeyList:
+    def get_KeyList(self, fetch_data: DataFetcher):
         buffer = fetch_data(
             self.fSeekKeys, self.header.fNbytesName + self.header.fNbytesKeys
         )
@@ -112,7 +112,7 @@ class TDirectory(ROOTSerializable):
             msg = f"TDirectory.read_keylist: fetch_cached: {seek=} {size=} out of range"
             raise ValueError(msg)
 
-        return key.read_object(fetch_cached, objtype=TKeyList)  # type: ignore[no-any-return]
+        return key.read_object(fetch_cached, objtype=TKeyList)
 
 
 DICTIONARY[b"TDirectory"] = TDirectory

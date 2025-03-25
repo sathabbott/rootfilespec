@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..structutil import ReadBuffer, ROOTSerializable, serializable
+from rootfilespec.structutil import ReadBuffer, ROOTSerializable, serializable
 
 
 @serializable

@@ -1,15 +1,24 @@
 from __future__ import annotations
 
-from ..structutil import ReadBuffer, ROOTSerializable, serializable
-from .streamedobject import StreamHeader, read_streamed_item
-from .TKey import DICTIONARY
-from .TObject import TObject
-from .TString import TString
+from dataclasses import dataclass
+
+from rootfilespec.bootstrap.streamedobject import StreamHeader, read_streamed_item
+from rootfilespec.bootstrap.TKey import DICTIONARY
+from rootfilespec.bootstrap.TObject import TObject
+from rootfilespec.bootstrap.TString import TString
+from rootfilespec.structutil import (
+    ReadBuffer,
+    ROOTSerializable,
+    serializable,
+)
 
 
-@serializable
+@dataclass
 class TList(ROOTSerializable):
-    """Format for TList class.
+    """TList container class.
+
+    Not directly usable! Use TList.factory() to create a specific TList class
+    with a specific item type, or use TListTObject for a generic TList class.
 
     Reference: https://root.cern/doc/master/streamerinfo.html (TList section)
 
@@ -23,7 +32,7 @@ class TList(ROOTSerializable):
     header: TObject
     fName: TString
     fN: int
-    items: list[TObject]
+    items: list[ROOTSerializable]  # TODO: narrow to TObject
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
@@ -36,12 +45,12 @@ class TList(ROOTSerializable):
             return cls(header, TString(junk), 0, []), buffer
         fName, buffer = TString.read(buffer)
         (fN,), buffer = buffer.unpack(">i")
-        items: list[TObject] = []
+        items: list[ROOTSerializable] = []
         for _ in range(fN):
             item, buffer = read_streamed_item(buffer)
-            if not isinstance(item, TObject):
-                msg = f"Expected TObject but got {item!r}"
-                raise ValueError(msg)
+            # if not isinstance(item, TObject):
+            #     msg = f"Expected TObject but got {item!r}"
+            #     raise ValueError(msg)
             # No idea why there is a null pad byte here
             pad, buffer = buffer.consume(1)
             if pad != b"\x00":
@@ -61,7 +70,7 @@ class TObjArray(ROOTSerializable):
     fName: TString
     nObjects: int
     fLowerBound: int
-    objects: list[TObject]
+    objects: list[ROOTSerializable]
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
@@ -69,12 +78,12 @@ class TObjArray(ROOTSerializable):
         b_object, buffer = TObject.read(buffer)
         fName, buffer = TString.read(buffer)
         (nObjects, fLowerBound), buffer = buffer.unpack(">ii")
-        objects: list[TObject] = []
+        objects: list[ROOTSerializable] = []
         for _ in range(nObjects):
             item, buffer = read_streamed_item(buffer)
-            if not isinstance(item, TObject):
-                msg = f"Expected TObject but got {item!r}"
-                raise ValueError(msg)
+            # if not isinstance(item, TObject):
+            #     msg = f"Expected TObject but got {item!r}"
+            #     raise ValueError(msg)
             objects.append(item)
         return cls(sheader, b_object, fName, nObjects, fLowerBound, objects), buffer
 

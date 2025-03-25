@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from ..structutil import (
+from rootfilespec.bootstrap.streamedobject import StreamHeader
+from rootfilespec.bootstrap.TKey import DICTIONARY
+from rootfilespec.bootstrap.TList import TObjArray
+from rootfilespec.bootstrap.TObject import TNamed
+from rootfilespec.bootstrap.TString import TString
+from rootfilespec.structutil import (
     Fmt,
     ReadBuffer,
     ROOTSerializable,
@@ -11,11 +16,6 @@ from ..structutil import (
     sfield,
     structify,
 )
-from .streamedobject import StreamHeader
-from .TKey import DICTIONARY
-from .TList import TObjArray
-from .TObject import TNamed
-from .TString import TString
 
 
 @structify(big_endian=True)

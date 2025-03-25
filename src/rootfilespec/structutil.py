@@ -112,7 +112,8 @@ T = TypeVar("T", bound="ROOTSerializable")
 class ROOTSerializable:
     @classmethod
     def read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
-        raise NotImplementedError
+        msg = "This is a logic error: ROOTSerializable.read should be overwritten by a subclass"
+        raise NotImplementedError(msg)
 
 
 @dataclass_transform()
