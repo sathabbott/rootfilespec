@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Annotated
 
 from rootfilespec.bootstrap.streamedobject import StreamHeader
@@ -11,28 +12,29 @@ from rootfilespec.structutil import (
     Fmt,
     ReadBuffer,
     ROOTSerializable,
-    StructClass,
     serializable,
-    sfield,
-    structify,
 )
-
-
-@structify(big_endian=True)
-class TStreamerInfo_header(StructClass):
-    fCheckSum: int = sfield("i")
-    fClassVersion: int = sfield("i")
 
 
 @serializable
 class TStreamerInfo(ROOTSerializable):
     sheader: StreamHeader
     b_named: TNamed
-    header: TStreamerInfo_header
+    fCheckSum: Annotated[int, Fmt(">i")]
+    fClassVersion: Annotated[int, Fmt(">i")]
     fObjects: TObjArray
 
 
 DICTIONARY[b"TStreamerInfo"] = TStreamerInfo
+
+
+@dataclass
+class ArrayDim:
+    dim0: int
+    dim1: int
+    dim2: int
+    dim3: int
+    dim4: int
 
 
 @serializable
@@ -74,14 +76,7 @@ class TStreamerElement_header(ROOTSerializable):
     fSize: Annotated[int, Fmt(">i")]
     fArrayLength: Annotated[int, Fmt(">i")]
     fArrayDim: Annotated[int, Fmt(">i")]
-    fMaxIndex: list[int] = sfield("5i")
-
-    @classmethod
-    def read(cls, buffer: ReadBuffer):
-        (fType, fSize, fArrayLength, fArrayDim, *fMaxIndex), buffer = buffer.unpack(
-            ">9i"
-        )
-        return cls(fType, fSize, fArrayLength, fArrayDim, fMaxIndex), buffer
+    fMaxIndex: Annotated[ArrayDim, Fmt("5i")]
 
 
 @serializable
