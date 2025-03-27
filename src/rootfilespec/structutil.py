@@ -37,13 +37,14 @@ class ReadBuffer:
 
     def __getitem__(self, key: slice) -> ReadBuffer:
         """Get a slice of the buffer."""
-        if key.start > len(self.data):
+        start: int = key.start or 0
+        if start > len(self.data):
             msg = f"Cannot get slice {key} from buffer of length {len(self.data)}"
             raise IndexError(msg)
         return ReadBuffer(
             self.data[key],
-            self.abspos + key.start if self.abspos is not None else None,
-            self.relpos + key.start,
+            self.abspos + start if self.abspos is not None else None,
+            self.relpos + start,
             self.local_refs,
         )
 
@@ -65,7 +66,7 @@ class ReadBuffer:
                 + "".join(
                     chr(c) if 32 <= c < 127 else "." for c in self.data[i : i + 16]
                 )
-                for i in range(0, 256, 16)
+                for i in range(0, min(256, len(self)), 16)
             )
         )
 
