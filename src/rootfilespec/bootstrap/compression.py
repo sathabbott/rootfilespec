@@ -78,7 +78,7 @@ class RCompressed(ROOTSerializable):
     payload: memoryview
 
     @classmethod
-    def read(cls, buffer: ReadBuffer):
+    def read_members(cls, buffer: ReadBuffer):
         header, buffer = RCompressionHeader.read(buffer)
         if header.fAlgorithm == b"L4":
             checksum, buffer = buffer.consume(4)
@@ -87,7 +87,7 @@ class RCompressed(ROOTSerializable):
         # Not using .consume() to avoid copying the payload
         nbytes = header.compressed_size()
         payload, buffer = buffer.data[:nbytes], buffer[nbytes:]
-        return cls(header, checksum, payload), buffer
+        return (header, checksum, payload), buffer
 
     def decompress(self) -> memoryview:
         decompressor = get_decompressor(self.header.fAlgorithm)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import struct
 from functools import partial
+from inspect import get_annotations  # type: ignore[attr-defined]
 from typing import (
     Annotated,
     Any,
@@ -113,31 +114,37 @@ T = TypeVar("T", bound="ROOTSerializable")
 class ROOTSerializable:
     @classmethod
     def read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
-        msg = "This is a logic error: ROOTSerializable.read should be overwritten by a subclass"
+        members, buffer = cls.read_members(buffer)
+        return cls(*members), buffer
+
+    @classmethod
+    def read_members(cls, buffer: ReadBuffer) -> tuple[tuple[Any, ...], ReadBuffer]:
+        msg = "Unimplemented method: {cls.__name__}.read_members"
         raise NotImplementedError(msg)
 
 
 @dataclass_transform()
 def serializable(cls: type[T]) -> type[T]:
-    """A decorator to add a read method to a class that reads its fields from a buffer.
+    """A decorator to add a read_members method to a class that reads its fields from a buffer.
 
     The class must have type hints for its fields, and the fields must be of types that
     either have a read method or are subscripted with a Fmt object.
     """
     cls = dataclasses.dataclass(cls)
 
-    # if the class already has a read method, don't overwrite it
-    readmethod = getattr(cls, "read", None)
+    # if the class already has a read_members method, don't overwrite it
+    readmethod = getattr(cls, "read_members", None)
     if (
         readmethod
-        and getattr(readmethod, "__func__", None) is not ROOTSerializable.read.__func__  # type: ignore[attr-defined]
+        and getattr(readmethod, "__qualname__", None)
+        == f"{cls.__qualname__}.read_members"
     ):
         return cls
 
     constructors: list[ReadMethod] = []
     namespace = get_type_hints(cls, include_extras=True)
-    for field in dataclasses.fields(cls):
-        ftype = namespace[field.name]
+    for field in get_annotations(cls):
+        ftype = namespace[field]
         if isinstance(ftype, type) and issubclass(ftype, ROOTSerializable):
             constructors.append(ftype.read)
         elif origin := get_origin(ftype):
@@ -148,24 +155,26 @@ def serializable(cls: type[T]) -> type[T]:
                     # TODO: potential optimization: consecutive struct fields could be read in one struct.unpack call
                     constructors.append(partial(fmt.read_as, ftype))
                 else:
-                    msg = f"Cannot read field {field.name} of type {ftype} with annotations {annotations}"
+                    msg = f"Cannot read field {field} of type {ftype} with annotations {annotations}"
                     raise NotImplementedError(msg)
             else:
-                msg = f"Cannot read field {field.name} of subscripted type {ftype} with origin {origin}"
+                msg = f"Cannot read field {field} of subscripted type {ftype} with origin {origin}"
                 raise NotImplementedError(msg)
         else:
-            msg = f"Cannot read field {field.name} of type {ftype}"
+            msg = f"Cannot read field {field} of type {ftype}"
             raise NotImplementedError(msg)
 
     @classmethod  # type: ignore[misc]
-    def read(cls: type[T], buffer: ReadBuffer) -> tuple[T, ReadBuffer]:
+    def read_members(
+        _: type[T], buffer: ReadBuffer
+    ) -> tuple[tuple[Any, ...], ReadBuffer]:
         args = []
         for constructor in constructors:
             arg, buffer = constructor(buffer)
             args.append(arg)
-        return cls(*args), buffer
+        return tuple(args), buffer
 
-    cls.read = read  # type: ignore[assignment]
+    cls.read_members = read_members  # type: ignore[assignment]
     return cls
 
 

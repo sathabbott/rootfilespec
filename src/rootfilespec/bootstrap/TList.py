@@ -2,19 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from rootfilespec.bootstrap.streamedobject import StreamHeader, read_streamed_item
+from rootfilespec.bootstrap.streamedobject import read_streamed_item
 from rootfilespec.bootstrap.TKey import DICTIONARY
-from rootfilespec.bootstrap.TObject import TObject
+from rootfilespec.bootstrap.TObject import StreamHeader, TObject, fBits
 from rootfilespec.bootstrap.TString import TString
-from rootfilespec.structutil import (
-    ReadBuffer,
-    ROOTSerializable,
-    serializable,
-)
+from rootfilespec.structutil import ReadBuffer, ROOTSerializable, serializable
 
 
 @dataclass
-class TList(ROOTSerializable):
+class TList(TObject):
     """TList container class.
 
     Reference: https://root.cern/doc/master/streamerinfo.html (TList section)
@@ -26,20 +22,25 @@ class TList(ROOTSerializable):
         items (list[TObject]): List of objects.
     """
 
-    b_TObject: TObject
     fName: TString
     fN: int
     items: list[ROOTSerializable]  # TODO: narrow to TObject
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        b_TObject, buffer = TObject.read(buffer)
-        if b_TObject.header.fVersion == 1 << 14 and b_TObject.header.fBits == 1 << 16:
+        header, buffer = StreamHeader.read(buffer)
+        (objheader, pidf), buffer = TObject.read_members(buffer)
+        if objheader.fVersion == 1 << 14 and (objheader.fBits & fBits.kNotSure):
             # This looks like schema evolution data
-            # print(f"Suspicious TList header: {header}")
+            # print(f"Suspicious TObject header: {header}")
             # print(f"Buffer: {buffer}")
             junk, buffer = buffer.consume(len(buffer) - 1)
-            return cls(b_TObject, TString(junk), 0, []), buffer
+            return cls(objheader, pidf, TString(junk), 0, []), buffer
+        (fName, fN, items), buffer = cls.read_members(buffer)
+        return cls(objheader, pidf, fName, fN, items), buffer
+
+    @classmethod
+    def read_members(cls, buffer: ReadBuffer):
         fName, buffer = TString.read(buffer)
         (fN,), buffer = buffer.unpack(">i")
         items: list[ROOTSerializable] = []
@@ -54,25 +55,21 @@ class TList(ROOTSerializable):
                 msg = f"Expected null pad byte but got {pad!r}"
                 raise ValueError(msg)
             items.append(item)
-        return cls(b_TObject, fName, fN, items), buffer
+        return (fName, fN, items), buffer
 
 
 DICTIONARY[b"TList"] = TList
 
 
 @serializable
-class TObjArray(ROOTSerializable):
-    sheader: StreamHeader
-    b_object: TObject
+class TObjArray(TObject):
     fName: TString
     nObjects: int
     fLowerBound: int
     objects: list[ROOTSerializable]
 
     @classmethod
-    def read(cls, buffer: ReadBuffer):
-        sheader, buffer = StreamHeader.read(buffer)
-        b_object, buffer = TObject.read(buffer)
+    def read_members(cls, buffer: ReadBuffer):
         fName, buffer = TString.read(buffer)
         (nObjects, fLowerBound), buffer = buffer.unpack(">ii")
         objects: list[ROOTSerializable] = []
@@ -82,7 +79,7 @@ class TObjArray(ROOTSerializable):
             #     msg = f"Expected TObject but got {item!r}"
             #     raise ValueError(msg)
             objects.append(item)
-        return cls(sheader, b_object, fName, nObjects, fLowerBound, objects), buffer
+        return (fName, nObjects, fLowerBound, objects), buffer
 
 
 DICTIONARY[b"TObjArray"] = TObjArray

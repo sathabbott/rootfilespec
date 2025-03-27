@@ -130,7 +130,7 @@ class ROOTFile(ROOTSerializable):
     padding: bytes
 
     @classmethod
-    def read(cls, buffer: ReadBuffer):
+    def read_members(cls, buffer: ReadBuffer):
         (magic,), buffer = buffer.unpack("4s")
         if magic != b"root":
             msg = f"ROOTFile.read: magic is not 'root': {magic!r}"
@@ -141,12 +141,12 @@ class ROOTFile(ROOTSerializable):
             uuid, buffer = buffer.consume(16)
         elif not fVersion.large:
             header, buffer = ROOTFile_header_v622_small.read(buffer)  # type: ignore[assignment]
-            uuid, buffer = TUUID.read(buffer)
+            uuid, buffer = TUUID.read(buffer)  # type: ignore[assignment]
         else:
             header, buffer = ROOTFile_header_v622_large.read(buffer)  # type: ignore[assignment]
-            uuid, buffer = TUUID.read(buffer)
+            uuid, buffer = TUUID.read(buffer)  # type: ignore[assignment]
         padding, buffer = buffer.consume(header.fBEGIN - buffer.relpos)
-        return cls(magic, fVersion, header, uuid, padding), buffer
+        return (magic, fVersion, header, uuid, padding), buffer
 
     def get_TFile(self, fetch_data: DataFetcher):
         """Get the TFile object (root directory) from the file."""

@@ -4,23 +4,15 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import Annotated
 
-from rootfilespec.bootstrap.streamedobject import StreamHeader
 from rootfilespec.bootstrap.TKey import DICTIONARY
 from rootfilespec.bootstrap.TList import TObjArray
 from rootfilespec.bootstrap.TObject import TNamed
 from rootfilespec.bootstrap.TString import TString
-from rootfilespec.structutil import (
-    Fmt,
-    ReadBuffer,
-    ROOTSerializable,
-    serializable,
-)
+from rootfilespec.structutil import Fmt, ReadBuffer, serializable
 
 
 @serializable
-class TStreamerInfo(ROOTSerializable):
-    sheader: StreamHeader
-    b_named: TNamed
+class TStreamerInfo(TNamed):
     fCheckSum: Annotated[int, Fmt(">i")]
     fClassVersion: Annotated[int, Fmt(">i")]
     fObjects: TObjArray
@@ -96,7 +88,7 @@ class ElementType(IntEnum):
         fmtmap = {
             self.kChar: "Annotated[int, '>b']",
             self.kShort: "Annotated[int, '>h']",
-            self.kInt: "Annotated[int, '>i']", 
+            self.kInt: "Annotated[int, '>i']",
             self.kLong: "Annotated[int, '>l']",
             self.kFloat: "Annotated[float, '>f']",
             self.kDouble: "Annotated[float, '>d']",
@@ -118,6 +110,7 @@ class ElementType(IntEnum):
 
         return fmtmap[self]
 
+
 @dataclass
 class ArrayDim:
     dim0: int
@@ -128,7 +121,7 @@ class ArrayDim:
 
 
 @serializable
-class TStreamerElement(ROOTSerializable):
+class TStreamerElement(TNamed):
     """TStreamerElement class.
 
     Reference: https://root.cern/doc/master/streamerinfo.html (TStreamerElement section)
@@ -141,8 +134,6 @@ class TStreamerElement(ROOTSerializable):
         fMaxIndex (int[5]): Five integers giving the array dimensions (0 if not applicable)
     """
 
-    sheader: StreamHeader
-    b_TNamed: TNamed
     fType: Annotated[ElementType, Fmt(">i")]
     fSize: Annotated[int, Fmt(">i")]
     fArrayLength: Annotated[int, Fmt(">i")]
@@ -155,17 +146,13 @@ DICTIONARY[b"TStreamerElement"] = TStreamerElement
 
 
 @serializable
-class TStreamerBase(ROOTSerializable):
+class TStreamerBase(TStreamerElement):
     """Streamer element for a base class.
 
     Attributes:
-        sheader (StreamHeader): Stream header.
-        b_element (TStreamerElement): Base streamer element.
         fBaseVersion (int): Version of base class.
     """
 
-    sheader: StreamHeader
-    b_element: TStreamerElement
     fBaseVersion: Annotated[int, Fmt(">i")]
 
 
@@ -173,37 +160,31 @@ DICTIONARY[b"TStreamerBase"] = TStreamerBase
 
 
 @serializable
-class TStreamerBasicType(ROOTSerializable):
-    sheader: StreamHeader
-    b_element: TStreamerElement
+class TStreamerBasicType(TStreamerElement):
+    pass
 
 
 DICTIONARY[b"TStreamerBasicType"] = TStreamerBasicType
 
 
 @serializable
-class TStreamerString(ROOTSerializable):
-    sheader: StreamHeader
-    b_element: TStreamerElement
+class TStreamerString(TStreamerElement):
+    pass
 
 
 DICTIONARY[b"TStreamerString"] = TStreamerString
 
 
 @serializable
-class TStreamerBasicPointer(ROOTSerializable):
+class TStreamerBasicPointer(TStreamerElement):
     """Streamer element for a pointer to a built in type.
 
     Attributes:
-        sheader (StreamHeader): Stream header.
-        b_element (TStreamerElement): Base streamer element.
         fCountVersion (int): Version of count variable.
         fCountName (TString): Name of count variable.
         fCountClass (TString): Class of count variable.
     """
 
-    sheader: StreamHeader
-    b_element: TStreamerElement
     fCountVersion: Annotated[int, Fmt(">i")]
     fCountName: TString
     fCountClass: TString
@@ -213,37 +194,31 @@ DICTIONARY[b"TStreamerBasicPointer"] = TStreamerBasicPointer
 
 
 @serializable
-class TStreamerObject(ROOTSerializable):
-    sheader: StreamHeader
-    b_element: TStreamerElement
+class TStreamerObject(TStreamerElement):
+    pass
 
 
 DICTIONARY[b"TStreamerObject"] = TStreamerObject
 
 
 @serializable
-class TStreamerObjectPointer(ROOTSerializable):
-    sheader: StreamHeader
-    b_element: TStreamerElement
+class TStreamerObjectPointer(TStreamerElement):
+    pass
 
 
 DICTIONARY[b"TStreamerObjectPointer"] = TStreamerObjectPointer
 
 
 @serializable
-class TStreamerLoop(ROOTSerializable):
+class TStreamerLoop(TStreamerElement):
     """Loop streamer element.
 
     Attributes:
-        sheader (StreamHeader): Stream header.
-        b_element (TStreamerElement): Base streamer element.
         fCountVersion (int): Version of count variable.
         fCountName (TString): Name of count variable.
         fCountClass (TString): Class of count variable.
     """
 
-    sheader: StreamHeader
-    b_element: TStreamerElement
     fCountVersion: Annotated[int, Fmt(">i")]
     fCountName: TString
     fCountClass: TString
@@ -253,21 +228,18 @@ DICTIONARY[b"TStreamerLoop"] = TStreamerLoop
 
 
 @serializable
-class TStreamerObjectAny(ROOTSerializable):
-    sheader: StreamHeader
-    b_element: TStreamerElement
+class TStreamerObjectAny(TStreamerElement):
+    pass
 
 
 DICTIONARY[b"TStreamerObjectAny"] = TStreamerObjectAny
 
 
 @serializable
-class TStreamerSTL(ROOTSerializable):
+class TStreamerSTL(TStreamerElement):
     """STL container streamer element.
 
     Attributes:
-        sheader (StreamHeader): Stream header.
-        b_element (TStreamerElement): Base streamer element.
         fSTLtype (int): Type of STL container.
             1:vector, 2:list, 3:deque, 4:map, 5:set, 6:multimap, 7:multiset
         fCType (int): Type contained in STL container.
@@ -275,8 +247,6 @@ class TStreamerSTL(ROOTSerializable):
 
     """
 
-    sheader: StreamHeader
-    b_element: TStreamerElement
     fSTLtype: Annotated[int, Fmt(">i")]
     fCType: Annotated[int, Fmt(">i")]
 
@@ -285,29 +255,21 @@ DICTIONARY[b"TStreamerSTL"] = TStreamerSTL
 
 
 @serializable
-class TStreamerSTLString(ROOTSerializable):
+class TStreamerSTLstring(TStreamerElement):
     """STL string streamer element.
 
     Attributes:
-        sheader (StreamHeader): Stream header.
-        b_element (TStreamerElement): Base streamer element.
         uninterpreted (bytes): Uninterpreted data.
             TODO: According to ROOT docs, there should not be any extra data here
     """
 
-    sheader: StreamHeader
-    b_element: TStreamerElement
     uninterpreted: bytes
 
     @classmethod
-    def read(cls, buffer: ReadBuffer):
-        initial_position = buffer.relpos
-        sheader, buffer = StreamHeader.read(buffer)
-        b_element, buffer = TStreamerElement.read(buffer)
-        expected_position = initial_position + sheader.fByteCount + 4
-        uninterpreted, buffer = buffer.consume(expected_position - buffer.relpos)
-        return cls(sheader, b_element, uninterpreted), buffer
+    def read_members(cls, buffer: ReadBuffer):
+        msg = "TStreamerSTLString.read_members"
+        raise NotImplementedError(msg)
 
 
 # the lower case "string" is intentional
-DICTIONARY[b"TStreamerSTLstring"] = TStreamerSTLString
+DICTIONARY[b"TStreamerSTLstring"] = TStreamerSTLstring

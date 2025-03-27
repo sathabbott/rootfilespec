@@ -81,7 +81,7 @@ class TDirectory(ROOTSerializable):
     fUUID: TUUID
 
     @classmethod
-    def read(cls, buffer: ReadBuffer):
+    def read_members(cls, buffer: ReadBuffer):
         header, buffer = TDirectory_header_v622.read(buffer)
         if header.fVersion < 1000:
             (fSeekDir, fSeekParent, fSeekKeys), buffer = buffer.unpack(">iii")
@@ -91,7 +91,7 @@ class TDirectory(ROOTSerializable):
         if header.fVersion < 1000:
             # Extra space to allow seeks to become 64 bit without moving this header
             buffer = buffer[12:]
-        return cls(header, fSeekDir, fSeekParent, fSeekKeys, fUUID), buffer
+        return (header, fSeekDir, fSeekParent, fSeekKeys, fUUID), buffer
 
     def get_KeyList(self, fetch_data: DataFetcher):
         buffer = fetch_data(
@@ -124,7 +124,7 @@ class TKeyList(ROOTSerializable, Mapping[str, TKey]):
     padding: bytes
 
     @classmethod
-    def read(cls, buffer: ReadBuffer):
+    def read_members(cls, buffer: ReadBuffer):
         (nKeys,), buffer = buffer.unpack(">i")
         keys: list[TKey] = []
         while len(keys) < nKeys:
@@ -134,7 +134,7 @@ class TKeyList(ROOTSerializable, Mapping[str, TKey]):
         # corresponding to padding in case seeks need to be 64 bit
         npad = 8 * sum(1 for k in keys if k.is_short())
         padding, buffer = buffer.consume(npad)
-        return cls(keys, padding), buffer
+        return (keys, padding), buffer
 
     def __len__(self):
         return len(self.fKeys)

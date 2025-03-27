@@ -69,7 +69,7 @@ class TKey(ROOTSerializable):
     fTitle: TString
 
     @classmethod
-    def read(cls, buffer: ReadBuffer):
+    def read_members(cls, buffer: ReadBuffer):
         initial_size = len(buffer)
         header, buffer = TKey_header.read(buffer)
         if header.fVersion < 1000:
@@ -81,7 +81,7 @@ class TKey(ROOTSerializable):
         fTitle, buffer = TString.read(buffer)
         if len(buffer) != initial_size - header.fKeylen:
             raise ValueError("TKey.read: buffer size mismatch")  # noqa: EM101
-        return cls(header, fSeekKey, fSeekPdir, fClassName, fName, fTitle), buffer
+        return (header, fSeekKey, fSeekPdir, fClassName, fName, fTitle), buffer
 
     def is_short(self) -> bool:
         """Return if the key is short (i.e. the seeks are 32 bit)"""
@@ -131,7 +131,7 @@ class TKey(ROOTSerializable):
             obj, buffer = objtype.read(buffer)
         else:
             typename = self.fClassName.fString
-            obj, buffer = DICTIONARY[typename].read(buffer)
+            obj, buffer = DICTIONARY[typename].read(buffer)  # type: ignore[assignment]
         if buffer:
             msg = f"TKey.read_object: buffer not empty after reading object of type {typename!r}."
             msg += f"\n{self=}"
