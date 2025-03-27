@@ -131,7 +131,7 @@ class TKey(ROOTSerializable):
             obj, buffer = objtype.read(buffer)
         else:
             typename = self.fClassName.fString
-            obj, buffer = DICTIONARY[typename].read(buffer)  # type: ignore[assignment]
+            obj, buffer = DICTIONARY[typename].read(buffer)
         if buffer:
             msg = f"TKey.read_object: buffer not empty after reading object of type {typename!r}."
             msg += f"\n{self=}"

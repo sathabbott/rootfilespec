@@ -17,32 +17,29 @@ from rootfilespec.structutil import (
 class TList(ROOTSerializable):
     """TList container class.
 
-    Not directly usable! Use TList.factory() to create a specific TList class
-    with a specific item type, or use TListTObject for a generic TList class.
-
     Reference: https://root.cern/doc/master/streamerinfo.html (TList section)
 
     Attributes:
-        header (TObject): TObject header.
+        b_TObject (TObject): TObject header.
         fName (TString): Name of the list.
         fN (int): Number of objects in the list.
         items (list[TObject]): List of objects.
     """
 
-    header: TObject
+    b_TObject: TObject
     fName: TString
     fN: int
     items: list[ROOTSerializable]  # TODO: narrow to TObject
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        header, buffer = TObject.read(buffer)
-        if header.header.fVersion == 1 << 14 and header.header.fBits == 1 << 16:
+        b_TObject, buffer = TObject.read(buffer)
+        if b_TObject.header.fVersion == 1 << 14 and b_TObject.header.fBits == 1 << 16:
             # This looks like schema evolution data
             # print(f"Suspicious TList header: {header}")
             # print(f"Buffer: {buffer}")
             junk, buffer = buffer.consume(len(buffer) - 1)
-            return cls(header, TString(junk), 0, []), buffer
+            return cls(b_TObject, TString(junk), 0, []), buffer
         fName, buffer = TString.read(buffer)
         (fN,), buffer = buffer.unpack(">i")
         items: list[ROOTSerializable] = []
@@ -57,7 +54,7 @@ class TList(ROOTSerializable):
                 msg = f"Expected null pad byte but got {pad!r}"
                 raise ValueError(msg)
             items.append(item)
-        return cls(header, fName, fN, items), buffer
+        return cls(b_TObject, fName, fN, items), buffer
 
 
 DICTIONARY[b"TList"] = TList

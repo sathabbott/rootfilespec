@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from rootfilespec.bootstrap.TDirectory import TDirectory
-from rootfilespec.bootstrap.TKey import DICTIONARY, TKey
+from rootfilespec.bootstrap.TKey import TKey
 from rootfilespec.bootstrap.TList import TList
 from rootfilespec.bootstrap.TString import TString
 from rootfilespec.bootstrap.TUUID import TUUID
@@ -179,7 +179,7 @@ class ROOTFile(ROOTSerializable):
 
 @serializable
 class TFile(ROOTSerializable):
-    """The TFile object is a TDirectory with an extra name and title field.
+    """The TFile is a TDirectory with an extra name and title field.
 
     TDirectory otherwise has its name and title in its owning TKey object.
     """
@@ -190,6 +190,3 @@ class TFile(ROOTSerializable):
 
     def get_KeyList(self, fetch_data):
         return self.rootdir.get_KeyList(fetch_data)
-
-
-DICTIONARY[b"TFile"] = TFile
