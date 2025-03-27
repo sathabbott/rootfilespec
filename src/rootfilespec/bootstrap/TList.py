@@ -6,7 +6,7 @@ from rootfilespec.bootstrap.streamedobject import read_streamed_item
 from rootfilespec.bootstrap.TKey import DICTIONARY
 from rootfilespec.bootstrap.TObject import StreamHeader, TObject, fBits
 from rootfilespec.bootstrap.TString import TString
-from rootfilespec.structutil import ReadBuffer, ROOTSerializable, serializable
+from rootfilespec.structutil import ReadBuffer, serializable
 
 
 @dataclass
@@ -24,7 +24,7 @@ class TList(TObject):
 
     fName: TString
     fN: int
-    items: list[ROOTSerializable]  # TODO: narrow to TObject
+    items: list[TObject]
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
@@ -43,12 +43,12 @@ class TList(TObject):
     def read_members(cls, buffer: ReadBuffer):
         fName, buffer = TString.read(buffer)
         (fN,), buffer = buffer.unpack(">i")
-        items: list[ROOTSerializable] = []
+        items: list[TObject] = []
         for _ in range(fN):
             item, buffer = read_streamed_item(buffer)
-            # if not isinstance(item, TObject):
-            #     msg = f"Expected TObject but got {item!r}"
-            #     raise ValueError(msg)
+            if not isinstance(item, TObject):
+                msg = f"Expected TObject but got {item!r}"
+                raise ValueError(msg)
             # No idea why there is a null pad byte here
             pad, buffer = buffer.consume(1)
             if pad != b"\x00":
@@ -66,18 +66,18 @@ class TObjArray(TObject):
     fName: TString
     nObjects: int
     fLowerBound: int
-    objects: list[ROOTSerializable]
+    objects: list[TObject]
 
     @classmethod
     def read_members(cls, buffer: ReadBuffer):
         fName, buffer = TString.read(buffer)
         (nObjects, fLowerBound), buffer = buffer.unpack(">ii")
-        objects: list[ROOTSerializable] = []
+        objects: list[TObject] = []
         for _ in range(nObjects):
             item, buffer = read_streamed_item(buffer)
-            # if not isinstance(item, TObject):
-            #     msg = f"Expected TObject but got {item!r}"
-            #     raise ValueError(msg)
+            if not isinstance(item, TObject):
+                msg = f"Expected TObject but got {item!r}"
+                raise ValueError(msg)
             objects.append(item)
         return (fName, nObjects, fLowerBound, objects), buffer
 
