@@ -31,8 +31,10 @@ class StreamHeader(ROOTSerializable):
     Attributes:
         fByteCount (int): Number of remaining bytes in object (uncompressed)
         fVersion (int): Version of Class
-        fClassRef (bytes | int | None): Reference to class info, either by name or by index in record
-        remaining (int): Number of remaining bytes in object
+        fClassName (bytes): Class name of object, if first instance of class in buffer
+        fClassRef (int): Position in buffer of class name if not specified here
+
+    Only one of fVersion, fClassName, or fClassRef will be set.
     """
 
     fByteCount: int
