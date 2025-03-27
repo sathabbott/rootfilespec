@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import Annotated
 
 from rootfilespec.bootstrap.TKey import DICTIONARY, TKey
 from rootfilespec.bootstrap.TUUID import TUUID
 from rootfilespec.bootstrap.util import fDatime_to_datetime
 from rootfilespec.structutil import (
     DataFetcher,
+    Fmt,
     ReadBuffer,
     ROOTSerializable,
-    StructClass,
     serializable,
-    sfield,
-    structify,
 )
 
 """
@@ -33,8 +32,8 @@ Format of a TDirectory record in release 3.02.06. It is never compressed.
 """
 
 
-@structify(big_endian=True)
-class TDirectory_header_v622(StructClass):
+@serializable
+class TDirectory_header_v622(ROOTSerializable):
     """Format of a TDirectory record in release 6.22.06. It is never compressed.
 
     Header information from https://root.cern/doc/master/tdirectory.html
@@ -47,11 +46,11 @@ class TDirectory_header_v622(StructClass):
         fNbytesName (int): Number of bytes in TKey+TNamed at creation
     """
 
-    fVersion: int = sfield("h")
-    fDatimeC: int = sfield("I")
-    fDatimeM: int = sfield("I")
-    fNbytesKeys: int = sfield("i")
-    fNbytesName: int = sfield("i")
+    fVersion: Annotated[int, Fmt(">h")]
+    fDatimeC: Annotated[int, Fmt(">I")]
+    fDatimeM: Annotated[int, Fmt(">I")]
+    fNbytesKeys: Annotated[int, Fmt(">i")]
+    fNbytesName: Annotated[int, Fmt(">i")]
 
     def create_time(self):
         """Date and time when directory was created"""

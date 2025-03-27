@@ -3,17 +3,15 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, TypeVar
+from typing import Annotated, Any, TypeVar
 
 from rootfilespec.bootstrap.TKey import DICTIONARY
 from rootfilespec.bootstrap.TString import TString
 from rootfilespec.structutil import (
+    Fmt,
     ReadBuffer,
     ROOTSerializable,
-    StructClass,
     serializable,
-    sfield,
-    structify,
 )
 
 
@@ -88,7 +86,7 @@ class StreamHeader(ROOTSerializable):
         return cls(fByteCount, fVersion, fClassName, fClassRef), buffer
 
 
-class fBits(IntEnum):
+class TObjectBits(IntEnum):
     """Bits for TObject class.
 
     Relevant bits for ROOTIO are:
@@ -109,25 +107,6 @@ class fBits(IntEnum):
     kNotSure = 0x00010000
 
 
-@structify(big_endian=True)
-class TObject_header(StructClass):
-    """Header data for TObject class.
-
-    Attributes:
-        fVersion (int): Version of TObject Class
-        fUniqueID (int): Unique ID of object.
-        fBits (int): A 32 bit mask containing status bits for the object.
-            See fBits enum for details.
-    """
-
-    fVersion: int = sfield("h")
-    fUniqueID: int = sfield("i")
-    fBits: int = sfield("i")
-
-    def is_referenced(self) -> bool:
-        return bool(self.fBits & fBits.kIsReferenced)
-
-
 T = TypeVar("T", bound="TObject")
 
 
@@ -146,7 +125,9 @@ class TObject(ROOTSerializable):
             Only present if the object is referenced by a pointer to persistent object.
     """
 
-    header: TObject_header
+    fVersion: Annotated[int, Fmt(">h")]
+    fUniqueID: Annotated[int, Fmt(">i")]
+    fBits: Annotated[int, Fmt(">i")]
     pidf: int | None
 
     @classmethod
@@ -194,11 +175,11 @@ class TObject(ROOTSerializable):
 
     @classmethod
     def read_members(cls, buffer: ReadBuffer) -> tuple[tuple[Any, ...], ReadBuffer]:
-        header, buffer = TObject_header.read(buffer)
+        (fVersion, fUniqueID, fBits), buffer = buffer.unpack(">hii")
         pidf = None
-        if header.is_referenced():
+        if fBits & TObjectBits.kIsReferenced:
             (pidf,), buffer = buffer.unpack(">H")
-        return (header, pidf), buffer
+        return (fVersion, fUniqueID, fBits, pidf), buffer
 
 
 DICTIONARY[b"TObject"] = TObject

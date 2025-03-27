@@ -176,34 +176,3 @@ def serializable(cls: type[T]) -> type[T]:
 
     cls.read_members = read_members  # type: ignore[assignment]
     return cls
-
-
-S = TypeVar("S", bound="StructClass")
-
-
-class StructClass(ROOTSerializable):
-    _struct: struct.Struct
-
-    @classmethod
-    def read(cls: type[S], buffer: ReadBuffer) -> tuple[S, ReadBuffer]:
-        args, buffer = buffer.unpack(cls._struct)
-        return cls(*args), buffer
-
-
-def structify(big_endian: bool):
-    """A decorator to add a precompiled struct.Struct object to a StructClass."""
-
-    endianness = ">" if big_endian else "<"
-
-    def decorator(cls: type[S]) -> type[S]:
-        cls = dataclasses.dataclass(cls)
-        fmt = "".join(f.metadata["format"] for f in dataclasses.fields(cls))
-        cls._struct = struct.Struct(endianness + fmt)
-        return cls
-
-    return decorator
-
-
-def sfield(fmt: str):
-    """A dataclass field that has a struct format."""
-    return dataclasses.field(metadata={"format": fmt})

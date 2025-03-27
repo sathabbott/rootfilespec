@@ -1,21 +1,19 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Annotated, Protocol
 
 import cramjam  # type: ignore[import-not-found]
 
 from rootfilespec.structutil import (
+    Fmt,
     ReadBuffer,
     ROOTSerializable,
-    StructClass,
     serializable,
-    sfield,
-    structify,
 )
 
 
-@structify(big_endian=True)
-class RCompressionHeader(StructClass):
+@serializable
+class RCompressionHeader(ROOTSerializable):
     """The header of a compressed data payload.
 
     Attributes:
@@ -31,10 +29,10 @@ class RCompressionHeader(StructClass):
             Use uncompressed_size() to get the actual size.
     """
 
-    fAlgorithm: bytes = sfield("2s")
-    fVersion: int = sfield("B")
-    fCompressedSize: bytes = sfield("3s")
-    fUncompressedSize: bytes = sfield("3s")
+    fAlgorithm: Annotated[bytes, Fmt("2s")]
+    fVersion: Annotated[int, Fmt("B")]
+    fCompressedSize: Annotated[bytes, Fmt("3s")]
+    fUncompressedSize: Annotated[bytes, Fmt("3s")]
 
     def compressed_size(self) -> int:
         return sum(s << (8 * i) for i, s in enumerate(self.fCompressedSize))

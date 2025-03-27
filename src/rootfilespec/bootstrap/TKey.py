@@ -1,25 +1,23 @@
 from __future__ import annotations
 
-from typing import TypeVar, overload
+from typing import Annotated, TypeVar, overload
 
 from rootfilespec.bootstrap.compression import RCompressed
 from rootfilespec.bootstrap.TString import TString
 from rootfilespec.bootstrap.util import fDatime_to_datetime
 from rootfilespec.structutil import (
     DataFetcher,
+    Fmt,
     ReadBuffer,
     ROOTSerializable,
-    StructClass,
     serializable,
-    sfield,
-    structify,
 )
 
 DICTIONARY: dict[bytes, type[ROOTSerializable]] = {}
 
 
-@structify(big_endian=True)
-class TKey_header(StructClass):
+@serializable
+class TKey_header(ROOTSerializable):
     """TKey header information
 
     Attributes:
@@ -31,12 +29,12 @@ class TKey_header(StructClass):
         fCycle (int): Cycle of key
     """
 
-    fNbytes: int = sfield("i")
-    fVersion: int = sfield("h")
-    fObjlen: int = sfield("i")
-    fDatime: int = sfield("I")
-    fKeylen: int = sfield("h")
-    fCycle: int = sfield("h")
+    fNbytes: Annotated[int, Fmt(">i")]
+    fVersion: Annotated[int, Fmt(">h")]
+    fObjlen: Annotated[int, Fmt(">i")]
+    fDatime: Annotated[int, Fmt(">I")]
+    fKeylen: Annotated[int, Fmt(">h")]
+    fCycle: Annotated[int, Fmt(">h")]
 
     def write_time(self):
         """Date and time when record was written to file"""

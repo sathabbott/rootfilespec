@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Annotated
 
 from rootfilespec.bootstrap.TDirectory import TDirectory
 from rootfilespec.bootstrap.TKey import TKey
@@ -9,12 +10,10 @@ from rootfilespec.bootstrap.TString import TString
 from rootfilespec.bootstrap.TUUID import TUUID
 from rootfilespec.structutil import (
     DataFetcher,
+    Fmt,
     ReadBuffer,
     ROOTSerializable,
-    StructClass,
     serializable,
-    sfield,
-    structify,
 )
 
 
@@ -36,8 +35,8 @@ class VersionInfo(ROOTSerializable):
         ), buffer
 
 
-@structify(big_endian=True)
-class ROOTFile_header_v302(StructClass):
+@serializable
+class ROOTFile_header_v302(ROOTSerializable):
     """
     A class representing the header structure for ROOTFile version 3.02.06
 
@@ -57,20 +56,21 @@ class ROOTFile_header_v302(StructClass):
         fUUID (bytes): Unique identifier for the file
     """
 
-    fBEGIN: int = sfield("i")
-    fEND: int = sfield("i")
-    fSeekFree: int = sfield("i")
-    fNbytesFree: int = sfield("i")
-    nfree: int = sfield("i")
-    fNbytesName: int = sfield("i")
-    fUnits: int = sfield("B")
-    fCompress: int = sfield("i")
-    fSeekInfo: int = sfield("i")
-    fNbytesInfo: int = sfield("i")
+    fBEGIN: Annotated[int, Fmt(">i")]
+    fEND: Annotated[int, Fmt(">i")]
+    fSeekFree: Annotated[int, Fmt(">i")]
+    fNbytesFree: Annotated[int, Fmt(">i")]
+    nfree: Annotated[int, Fmt(">i")]
+    fNbytesName: Annotated[int, Fmt(">i")]
+    fUnits: Annotated[int, Fmt(">B")]
+    fCompress: Annotated[int, Fmt(">i")]
+    fSeekInfo: Annotated[int, Fmt(">i")]
+    fNbytesInfo: Annotated[int, Fmt(">i")]
+    unused: Annotated[bytes, Fmt("18s")]
 
 
-@structify(big_endian=True)
-class ROOTFile_header_v622_small(StructClass):
+@serializable
+class ROOTFile_header_v622_small(ROOTSerializable):
     """
     A class representing the header structure for ROOTFile version 6.22.06
 
@@ -91,32 +91,34 @@ class ROOTFile_header_v622_small(StructClass):
         fNbytesInfo (int): Number of bytes in StreamerInfo record
     """
 
-    fBEGIN: int = sfield("i")
-    fEND: int = sfield("i")
-    fSeekFree: int = sfield("i")
-    fNbytesFree: int = sfield("i")
-    nfree: int = sfield("i")
-    fNbytesName: int = sfield("i")
-    fUnits: int = sfield("B")
-    fCompress: int = sfield("i")
-    fSeekInfo: int = sfield("i")
-    fNbytesInfo: int = sfield("i")
+    fBEGIN: Annotated[int, Fmt(">i")]
+    fEND: Annotated[int, Fmt(">i")]
+    fSeekFree: Annotated[int, Fmt(">i")]
+    fNbytesFree: Annotated[int, Fmt(">i")]
+    nfree: Annotated[int, Fmt(">i")]
+    fNbytesName: Annotated[int, Fmt(">i")]
+    fUnits: Annotated[int, Fmt(">B")]
+    fCompress: Annotated[int, Fmt(">i")]
+    fSeekInfo: Annotated[int, Fmt(">i")]
+    fNbytesInfo: Annotated[int, Fmt(">i")]
+    fUUID: TUUID
 
 
-@structify(big_endian=True)
-class ROOTFile_header_v622_large(StructClass):
+@serializable
+class ROOTFile_header_v622_large(ROOTSerializable):
     __doc__ = ROOTFile_header_v622_small.__doc__
 
-    fBEGIN: int = sfield("i")
-    fEND: int = sfield("q")
-    fSeekFree: int = sfield("q")
-    fNbytesFree: int = sfield("i")
-    nfree: int = sfield("i")
-    fNbytesName: int = sfield("i")
-    fUnits: int = sfield("B")
-    fCompress: int = sfield("i")
-    fSeekInfo: int = sfield("q")
-    fNbytesInfo: int = sfield("i")
+    fBEGIN: Annotated[int, Fmt(">i")]
+    fEND: Annotated[int, Fmt(">q")]
+    fSeekFree: Annotated[int, Fmt(">q")]
+    fNbytesFree: Annotated[int, Fmt(">i")]
+    nfree: Annotated[int, Fmt(">i")]
+    fNbytesName: Annotated[int, Fmt(">i")]
+    fUnits: Annotated[int, Fmt(">B")]
+    fCompress: Annotated[int, Fmt(">i")]
+    fSeekInfo: Annotated[int, Fmt(">q")]
+    fNbytesInfo: Annotated[int, Fmt(">i")]
+    fUUID: TUUID
 
 
 @serializable
@@ -126,7 +128,6 @@ class ROOTFile(ROOTSerializable):
     header: (
         ROOTFile_header_v302 | ROOTFile_header_v622_small | ROOTFile_header_v622_large
     )
-    UUID: bytes | TUUID
     padding: bytes
 
     @classmethod
@@ -138,15 +139,12 @@ class ROOTFile(ROOTSerializable):
         fVersion, buffer = VersionInfo.read(buffer)
         if fVersion <= VersionInfo(6, 2, 2):
             header, buffer = ROOTFile_header_v302.read(buffer)
-            uuid, buffer = buffer.consume(16)
         elif not fVersion.large:
             header, buffer = ROOTFile_header_v622_small.read(buffer)  # type: ignore[assignment]
-            uuid, buffer = TUUID.read(buffer)  # type: ignore[assignment]
         else:
             header, buffer = ROOTFile_header_v622_large.read(buffer)  # type: ignore[assignment]
-            uuid, buffer = TUUID.read(buffer)  # type: ignore[assignment]
         padding, buffer = buffer.consume(header.fBEGIN - buffer.relpos)
-        return (magic, fVersion, header, uuid, padding), buffer
+        return (magic, fVersion, header, padding), buffer
 
     def get_TFile(self, fetch_data: DataFetcher):
         """Get the TFile object (root directory) from the file."""
