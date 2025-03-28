@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from .TDirectory import TDirectory, TKeyList
-from .TFile import ROOTFile, TFile
-from .TKey import TKey
-from .TList import TList, TObjArray
-from .TObject import TNamed, TObject
-from .TStreamerInfo import (
+from rootfilespec.bootstrap.TDirectory import TDirectory, TKeyList
+from rootfilespec.bootstrap.TFile import ROOTFile, TFile
+from rootfilespec.bootstrap.TKey import TKey
+from rootfilespec.bootstrap.TList import TList, TObjArray
+from rootfilespec.bootstrap.TObject import TNamed, TObject
+from rootfilespec.bootstrap.TStreamerInfo import (
     TStreamerBase,
     TStreamerElement,
     TStreamerInfo,
     TStreamerString,
 )
-from .TString import TString
+from rootfilespec.bootstrap.TString import TString
 
 __all__ = [
     "ROOTFile",
