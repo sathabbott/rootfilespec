@@ -6,7 +6,7 @@ from enum import IntEnum
 from typing import Annotated, Any, TypeVar
 
 from rootfilespec.bootstrap.TString import TString
-from rootfilespec.dispatch import DICTIONARY
+from rootfilespec.dispatch import DICTIONARY, normalize
 from rootfilespec.structutil import (
     Fmt,
     ReadBuffer,
@@ -125,6 +125,7 @@ class StreamedObject(ROOTSerializable):
         # TODO move this to a free function
         start_position = buffer.relpos
         itemheader, buffer = StreamHeader.read(buffer)
+        # TODO: this is not the right place for version-specific logic
         if cls is TNamed and itemheader.fVersion == 1:
             # Early versions don't have the TObject stream header
             args0, buffer = TObject.read_members(buffer)
@@ -138,9 +139,7 @@ class StreamedObject(ROOTSerializable):
             args0, buffer = TObject.read_members(buffer)
             args1, buffer = cls.read_members(buffer)
             return (args0 + args1), buffer
-        if itemheader.fClassName and itemheader.fClassName != cls.__name__.encode(
-            "utf-8"
-        ):
+        if itemheader.fClassName and normalize(itemheader.fClassName) != cls.__name__:
             msg = f"Expected class {cls.__name__} but got {itemheader.fClassName}"
             raise ValueError(msg)
         end_position = start_position + itemheader.fByteCount + 4

@@ -191,6 +191,7 @@ class StdVector(ROOTSerializable, Generic[T]):
     def read_as(
         cls, outtype: type[T], buffer: ReadBuffer, args: Args
     ) -> tuple[Args, ReadBuffer]:
+        raise NotImplementedError
         (n,), buffer = buffer.unpack(">i")
         out: list[T] = []
         for _ in range(n):
