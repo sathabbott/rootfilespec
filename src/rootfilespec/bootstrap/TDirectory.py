@@ -116,7 +116,7 @@ class TDirectory(ROOTSerializable):
 
         def fetch_cached(seek: int, size: int):
             seek -= self.fSeekKeys
-            if seek + size <= buffer.__len__():
+            if seek + size <= len(buffer):
                 return buffer[seek : seek + size]
             msg = f"TDirectory.read_keylist: fetch_cached: {seek=} {size=} out of range"
             raise ValueError(msg)
@@ -135,7 +135,7 @@ class TKeyList(ROOTSerializable, Mapping[str, TKey]):
 
     # Fields for a TKeyList
     fKeys: list[TKey]
-    # padding: bytes
+    padding: bytes
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
@@ -144,16 +144,11 @@ class TKeyList(ROOTSerializable, Mapping[str, TKey]):
         while len(keys) < nKeys:
             key, buffer = TKey.read(buffer)
             keys.append(key)
-        # abbott: this code crashes the reader in my use case, but fixes a bug in Nick's use case
-        #          My use case: TKeyList has one entry, a short key
-        #          Nick's use case: TKeyList has multiple entries, 1 short key + 4-5 long keys
-        # # suspicion: there will be 8*nshort trailing bytes
-        # # corresponding to padding in case seeks need to be 64 bit
-        # npad = 8 * sum(1 for k in keys if k.is_short())
-        # padding, buffer = buffer.consume(npad)
-
-        # return cls(keys, padding), buffer
-        return cls(keys), buffer
+        # suspicion: there will be 8*nshort trailing bytes
+        # corresponding to padding in case seeks need to be 64 bit
+        npad = 8 * sum(1 for k in keys if k.is_short())
+        padding, buffer = buffer.consume(npad)
+        return cls(keys, padding), buffer
 
     def __len__(self):
         return len(self.fKeys)

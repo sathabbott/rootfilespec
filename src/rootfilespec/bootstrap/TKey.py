@@ -68,7 +68,7 @@ class TKey(ROOTSerializable):
 
     @classmethod
     def read(cls, buffer: ReadBuffer):
-        initial_size = buffer.__len__()
+        initial_size = len(buffer)
         header, buffer = TKey_header.read(buffer)
         if header.fVersion < 1000:
             (fSeekKey, fSeekPdir), buffer = buffer.unpack(">II")
@@ -77,7 +77,7 @@ class TKey(ROOTSerializable):
         fClassName, buffer = TString.read(buffer)
         fName, buffer = TString.read(buffer)
         fTitle, buffer = TString.read(buffer)
-        if buffer.__len__() != initial_size - header.fKeylen:
+        if len(buffer) != initial_size - header.fKeylen:
             raise ValueError("TKey.read: buffer size mismatch")  # noqa: EM101
         return cls(header, fSeekKey, fSeekPdir, fClassName, fName, fTitle), buffer
 
@@ -99,7 +99,7 @@ class TKey(ROOTSerializable):
         compressed = None
         # fObjlen is the number of bytes of uncompressed data
         # The length of the buffer is the number of bytes of compressed data
-        if buffer.__len__() != self.header.fObjlen:
+        if len(buffer) != self.header.fObjlen:
             # This is a compressed object
             compressed, buffer = RCompressed.read(buffer)
             if compressed.header.uncompressed_size() != self.header.fObjlen:

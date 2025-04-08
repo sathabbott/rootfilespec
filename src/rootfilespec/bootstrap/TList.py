@@ -34,7 +34,7 @@ class TList(ROOTSerializable):
             # This looks like schema evolution data
             # print(f"Suspicious TList header: {header}")
             # print(f"Buffer: {buffer}")
-            junk, buffer = buffer.consume(buffer.__len__() - 1)
+            junk, buffer = buffer.consume(len(buffer) - 1)
             return cls(header, TString(junk), 0, []), buffer
         fName, buffer = TString.read(buffer)
         (fN,), buffer = buffer.unpack(">i")

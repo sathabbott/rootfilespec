@@ -159,21 +159,6 @@ class ROOTFile(ROOTSerializable):
         """Reads and parses a ROOT file from the given buffer.
         Binary Spec: https://root.cern.ch/doc/master/classTFile.html
                      https://root.cern.ch/doc/master/header.html
-        Args:
-            buffer (ReadBuffer): The buffer containing the ROOT file data.
-
-        Returns:
-            tuple: A tuple containing the parsed ROOT file object and the remaining buffer.
-
-        Raises:
-            ValueError: If the magic number in the buffer is not 'root'.
-
-        The function performs the following steps:
-        1. Unpacks the magic number from the buffer and checks if it is 'root'.
-        2. Reads the version information from the buffer.
-        3. Depending on the version, reads the appropriate header and UUID from the buffer.
-        4. Consumes the padding bytes from the buffer.
-        5. Returns the parsed ROOT file object and the remaining buffer.
         """
         (magic,), buffer = buffer.unpack("4s")
         if magic != b"root":
