@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from rootfilespec.dispatch import DICTIONARY
+from rootfilespec.structutil import ReadBuffer, ROOTSerializable, serializable
 
-from ..structutil import ReadBuffer, ROOTSerializable
 
-
-@dataclass
+@serializable
 class TString(ROOTSerializable):
     """A class representing a TString.
     """
@@ -13,7 +12,7 @@ class TString(ROOTSerializable):
     fString: bytes
 
     @classmethod
-    def read(cls, buffer: ReadBuffer):
+    def read_members(cls, buffer: ReadBuffer):
         """Reads a TString from the given buffer.
         TStrings are always prefixed with a byte indicating the length of the string.
         """
@@ -21,4 +20,7 @@ class TString(ROOTSerializable):
         if length == 255:
             (length,), buffer = buffer.unpack(">I")
         data, buffer = buffer.consume(length)
-        return cls(data), buffer
+        return (data,), buffer
+
+
+DICTIONARY["TString"] = TString

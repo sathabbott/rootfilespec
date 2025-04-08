@@ -1,22 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Protocol
+from typing import Annotated, Protocol
 
 import cramjam  # type: ignore[import-not-found]
 
-from ..structutil import (
+from rootfilespec.structutil import (
+    Fmt,
     ReadBuffer,
     ROOTSerializable,
-    StructClass,
-    sfield,
-    structify,
+    serializable,
 )
 
 
-@structify(big_endian=True)
-@dataclass
-class RCompressionHeader(StructClass):
+@serializable
+class RCompressionHeader(ROOTSerializable):
     """The header of a compressed data payload.
 
     Attributes:
@@ -32,10 +29,10 @@ class RCompressionHeader(StructClass):
             Use uncompressed_size() to get the actual size.
     """
 
-    fAlgorithm: bytes = sfield("2s")
-    fVersion: int = sfield("B")
-    fCompressedSize: bytes = sfield("3s")
-    fUncompressedSize: bytes = sfield("3s")
+    fAlgorithm: Annotated[bytes, Fmt("2s")]
+    fVersion: Annotated[int, Fmt("B")]
+    fCompressedSize: Annotated[bytes, Fmt("3s")]
+    fUncompressedSize: Annotated[bytes, Fmt("3s")]
 
     def compressed_size(self) -> int:
         return sum(s << (8 * i) for i, s in enumerate(self.fCompressedSize))
@@ -63,7 +60,7 @@ def get_decompressor(algorithm: bytes) -> Decompressor:
     raise NotImplementedError(msg)
 
 
-@dataclass
+@serializable
 class RCompressed(ROOTSerializable):
     """A compressed data payload.
 
@@ -79,7 +76,7 @@ class RCompressed(ROOTSerializable):
     payload: memoryview
 
     @classmethod
-    def read(cls, buffer: ReadBuffer):
+    def read_members(cls, buffer: ReadBuffer):
         header, buffer = RCompressionHeader.read(buffer)
         if header.fAlgorithm == b"L4":
             checksum, buffer = buffer.consume(4)
@@ -88,7 +85,7 @@ class RCompressed(ROOTSerializable):
         # Not using .consume() to avoid copying the payload
         nbytes = header.compressed_size()
         payload, buffer = buffer.data[:nbytes], buffer[nbytes:]
-        return cls(header, checksum, payload), buffer
+        return (header, checksum, payload), buffer
 
     def decompress(self) -> memoryview:
         decompressor = get_decompressor(self.header.fAlgorithm)

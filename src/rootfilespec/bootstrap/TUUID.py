@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from uuid import UUID
 
-from ..structutil import ReadBuffer, ROOTSerializable
+from rootfilespec.structutil import ReadBuffer, ROOTSerializable, serializable
 
 
-@dataclass
+@serializable
 class TUUID(ROOTSerializable):
     fVersion: int
     fUUID: UUID
 
     @classmethod
-    def read(cls, buffer: ReadBuffer):
+    def read_members(cls, buffer: ReadBuffer):
         (fVersion,), buffer = buffer.unpack(">h")
         data, buffer = buffer.consume(16)
         uuid = UUID(bytes=data)
-        return cls(fVersion, uuid), buffer
+        return (fVersion, uuid), buffer
