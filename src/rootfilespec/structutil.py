@@ -127,13 +127,13 @@ class BasicArray:
             shape of the array.
     """
 
-    dtype: np.dtype
+    dtype: np.dtype[Any]
     shapefield: str
 
 
 @dataclasses.dataclass
 class _BasicArrayReadMethod:
-    dtype: np.dtype
+    dtype: np.dtype[Any]
     sizeidx: int
 
     def read(self, buffer: ReadBuffer, args: Args) -> tuple[Args, ReadBuffer]:
@@ -192,12 +192,12 @@ class StdVector(ROOTSerializable, Generic[T]):
         cls, outtype: type[T], buffer: ReadBuffer, args: Args
     ) -> tuple[Args, ReadBuffer]:
         raise NotImplementedError
-        (n,), buffer = buffer.unpack(">i")
-        out: list[T] = []
-        for _ in range(n):
-            obj, buffer = outtype.read(buffer)
-            out.append(obj)
-        return (*args, cls(out)), buffer
+        # (n,), buffer = buffer.unpack(">i")
+        # out: list[T] = []
+        # for _ in range(n):
+        #     obj, buffer = outtype.read(buffer)
+        #     out.append(obj)
+        # return (*args, cls(out)), buffer
 
 
 @dataclass_transform()

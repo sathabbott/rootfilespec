@@ -9,7 +9,9 @@ def read_streamed_item(buffer: ReadBuffer) -> tuple[ROOTSerializable, ReadBuffer
     # Read ahead the stream header to determine the type of the object
     itemheader, _ = StreamHeader.read(buffer)
     if itemheader.fByteCount == 0 and itemheader.fClassRef is not None:
-        return StreamHeader.read(buffer)
+        # TODO: implement dereferencing of fClassRef
+        item, buffer = StreamHeader.read(buffer)
+        return item, buffer
     if not itemheader.fClassName:
         msg = f"StreamHeader has no class name: {itemheader}"
         raise ValueError(msg)
