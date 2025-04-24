@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from rootfilespec.bootstrap.assumed import ROOT3a3aTIOFeatures
 from rootfilespec.bootstrap.envelopebase import REnvelope, REnvelopeLink
 from rootfilespec.bootstrap.RAnchor import ROOT3a3aRNTuple
@@ -16,7 +14,7 @@ from rootfilespec.bootstrap.TStreamerInfo import (
     TStreamerInfo,
     TStreamerString,
 )
-from rootfilespec.bootstrap.TString import TString
+from rootfilespec.bootstrap.TString import TString, string
 
 __all__ = [
     "REnvelope",
@@ -40,4 +38,5 @@ __all__ = [
     "TStreamerInfo",
     "TStreamerString",
     "TString",
+    "string",
 ]

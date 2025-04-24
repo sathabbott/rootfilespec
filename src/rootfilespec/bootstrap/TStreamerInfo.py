@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Annotated
@@ -7,8 +5,9 @@ from typing import Annotated
 from rootfilespec.bootstrap.TList import TObjArray
 from rootfilespec.bootstrap.TObject import TNamed
 from rootfilespec.bootstrap.TString import TString
+from rootfilespec.cpptype import cpptype_to_pytype
 from rootfilespec.dispatch import DICTIONARY, normalize
-from rootfilespec.structutil import Fmt, ReadBuffer, serializable
+from rootfilespec.structutil import Fmt, serializable
 
 
 @dataclass
@@ -28,22 +27,31 @@ class TStreamerInfo(TNamed):
         """Get the class name of this streamer info."""
         return normalize(self.fName.fString)
 
+    def base_classes(self) -> list[str]:
+        """Get the base classes of this streamer info."""
+        bases: list[str] = []
+        for element in self.fObjects.objects:
+            if isinstance(element, TStreamerBase):
+                bases.append(element.member_name())
+        if not bases:
+            bases.append("StreamedObject")
+        return bases
+
     def class_definition(self) -> ClassDef:
         """Get the class definition code of this streamer info."""
-        bases: list[str] = []
+        bases = self.base_classes()
         members: list[str] = []
         dependencies: list[str] = []
         for element in self.fObjects.objects:
-            assert isinstance(element, TStreamerElement)
+            if not isinstance(element, (TStreamerElement, TStreamerSTLstring)):
+                msg = f"Unexpected element: {element}"
+                raise TypeError(msg)
             if isinstance(element, TStreamerBase):
-                bases.append(element.member_name())
                 continue
             mdef, dep = element.member_definition(parent=self)
             dependencies.extend(dep)
             members.append(mdef)
         clsname = self.class_name()
-        if len(bases) == 0:
-            bases.append("StreamedObject")
         basestr = ", ".join(reversed(bases))
         lines: list[str] = []
         lines.append(f"# Generated for {self}")
@@ -65,65 +73,113 @@ DICTIONARY["TStreamerInfo"] = TStreamerInfo
 class ElementType(IntEnum):
     """Element type codes.
 
-    Built in types:
-    1:char, 2:short, 3:int, 4:long, 5:float, 8:double
-    11, 12, 13, 14:unsigned char, short, int, long respectively
-    6: an array dimension (counter)
-    15: bit mask (used for fBits field)
-
-    Pointers to built in types:
-    40 + fType of built in type (e.g. 43: pointer to int)
-
-    Objects:
-    65:TString, 66:TObject, 67:TNamed
-    0: base class (other than TObject or TNamed)
-    61: object data member derived from TObject (other than TObject or TNamed)
-    62: object data member not derived from TObject
-    63: pointer to object derived from TObject (pointer can't be null)
-    64: pointer to object derived from TObject (pointer may be null)
-    501: pointer to an array of objects
-    500: an STL string or container
-
-    Arrays:
-    20 + fType of array element (e.g. 23: array of int)
+    See https://github.com/root-project/root/blob/v6-34-08/core/meta/inc/TVirtualStreamerInfo.h#L116-L140
     """
 
+    kBase = 0
+    "Base class element"
+    kOffsetL = 20
+    "Fixed size array"
+    kOffsetP = 40
+    "Pointer to object"
+    kCounter = 6
+    "Counter for array size"
+    kCharStar = 7
+    "Pointer to array of char"
     kChar = 1
     kShort = 2
     kInt = 3
     kLong = 4
     kFloat = 5
     kDouble = 8
+    kDouble32 = 9
+    kLegacyChar = 10
+    "Equal to TDataType's kchar"
     kUChar = 11
     kUShort = 12
     kUInt = 13
     kULong = 14
+    kBits = 15
+    "TObject::fBits in case of a referenced object"
     kLong64 = 16
+    kULong64 = 17
     kBool = 18
-    kArrayDim = 6
-    kBitMask = 15
-    kPointer = 40
-    kPointerChar = 41
-    kPointerShort = 42
-    kPointerInt = 43
-    kPointerLong = 44
-    kPointerFloat = 45
-    kPointerDouble = 48
-    kPointerUChar = 51
-    kPointerUShort = 52
-    kPointerUInt = 53
-    kPointerULong = 54
-    kPointerLong64 = 56
+    kFloat16 = 19
+    # Arrays of built-in types
+    kArrayChar = kOffsetL + 1
+    kArrayShort = kOffsetL + 2
+    kArrayInt = kOffsetL + 3
+    kArrayLong = kOffsetL + 4
+    kArrayFloat = kOffsetL + 5
+    kArrayDouble = kOffsetL + 8
+    kArrayDouble32 = kOffsetL + 9
+    kArrayLegacyChar = kOffsetL + 10
+    kArrayUChar = kOffsetL + 11
+    kArrayUShort = kOffsetL + 12
+    kArrayUInt = kOffsetL + 13
+    kArrayULong = kOffsetL + 14
+    kArrayBits = kOffsetL + 15
+    kArrayLong64 = kOffsetL + 16
+    kArrayULong64 = kOffsetL + 17
+    kArrayBool = kOffsetL + 18
+    kArrayFloat16 = kOffsetL + 19
+    # Pointers to built-in types
+    kPointerChar = kOffsetP + 1
+    kPointerShort = kOffsetP + 2
+    kPointerInt = kOffsetP + 3
+    kPointerLong = kOffsetP + 4
+    kPointerFloat = kOffsetP + 5
+    kPointerDouble = kOffsetP + 8
+    kPointerDouble32 = kOffsetP + 9
+    kPointerLegacyChar = kOffsetP + 10
+    kPointerUChar = kOffsetP + 11
+    kPointerUShort = kOffsetP + 12
+    kPointerUInt = kOffsetP + 13
+    kPointerULong = kOffsetP + 14
+    kPointerBits = kOffsetP + 15
+    kPointerLong64 = kOffsetP + 16
+    kPointerULong64 = kOffsetP + 17
+    kPointerBool = kOffsetP + 18
+    kPointerFloat16 = kOffsetP + 19
+    kObject = 61
+    "Class derived from TObject, or for TStreamerSTL::fCtype non-pointer elements"
+    kAny = 62
+    kObjectp = 63
+    "Class* derived from TObject and with    comment field //->Class, or for TStreamerSTL::fCtype: pointer elements"
+    kObjectP = 64
+    "Class* derived from TObject and with NO comment field //->Class"
     kTString = 65
     kTObject = 66
     kTNamed = 67
-    kBaseClass = 0
-    kObjectDataMemberTObject = 61
-    kObjectDataMember = 62
-    kPointerTObjectNotNull = 63
-    kPointerTObjectNullable = 64
-    kPointerArray = 501
-    kSTL = 500
+    kAnyp = 68
+    kAnyP = 69
+    kAnyPnoVT = 70
+    kSTLp = 71
+    kObjectL = kObject + kOffsetL
+    kAnyL = kAny + kOffsetL
+    kObjectpL = kObjectp + kOffsetL
+    kObjectPL = kObjectP + kOffsetL
+    kSkip = 100
+    kSkipL = 120
+    kSkipP = 140
+    kConv = 200
+    kConvL = 220
+    kConvP = 240
+    kSTL = 300
+    kSTLstring = 365
+    kStreamer = 500
+    kStreamLoop = 501
+    kCache = 600
+    "Cache the value in memory than is not part of the object but is accessible via a SchemaRule"
+    kArtificial = 1000
+    kCacheNew = 1001
+    kCacheDelete = 1002
+    kNeedObjectForVirtualBaseClass = 99997
+    kMissing = 99999
+    kNoType = -1
+    "Type corresponding to a 'missing' data member (with kMissing offset)"
+    kUnsupportedConversion = -2
+    kUnset = -3
 
     def __repr__(self) -> str:
         """Get a string representation of this element type."""
@@ -131,7 +187,7 @@ class ElementType(IntEnum):
 
     def is_basicpointer(self) -> bool:
         """Check if the element type is a pointer to a basic type."""
-        return self.value >= self.kPointer and self.value < self.kPointer + 20
+        return self.value >= self.kOffsetP and self.value < self.kOffsetP + 20
 
     def as_fmt(self) -> tuple[str, str]:
         """Get the format character and type name for this element type.
@@ -152,11 +208,15 @@ class ElementType(IntEnum):
             self.kUInt: (int, ">I"),
             self.kULong: (int, ">Q"),
             self.kLong64: (int, ">q"),
+            self.kULong64: (int, ">Q"),
             self.kBool: (bool, ">?"),
-            self.kBitMask: (int, ">I"),
-            self.kArrayDim: (int, ">i"),
+            self.kBits: (int, ">I"),
+            self.kCounter: (int, ">i"),
         }
         if self not in fmtmap:
+            if self < 40:
+                msg = f"Reading {self!r} not implemented"
+                raise NotImplementedError(msg)
             msg = f"Cannot convert {self!r} to format character"
             raise ValueError(msg)
 
@@ -178,6 +238,7 @@ class TStreamerElement(TNamed):
     """TStreamerElement class.
 
     Reference: https://root.cern/doc/master/streamerinfo.html (TStreamerElement section)
+    Also https://github.com/root-project/root/blob/b07ce7e4d93cbf50426fa881635702e48b5dc1a6/core/meta/src/TStreamerElement.cxx#L512
 
     Attributes:
         fType (int): Type of data described by this TStreamerElement.
@@ -198,6 +259,10 @@ class TStreamerElement(TNamed):
         """Get the member name of this streamer element."""
         return normalize(self.fName.fString)
 
+    def cpp_typename(self) -> bytes:
+        """Get the C++ type name of this streamer element."""
+        return self.fTypeName.fString
+
     def type_name(self) -> str:
         """Get the type name of this streamer element."""
         return normalize(self.fTypeName.fString)
@@ -207,7 +272,8 @@ class TStreamerElement(TNamed):
         Returns:
             tuple[str, list[str]]: Member definition and list of dependencies.
         """
-        raise NotImplementedError
+        msg = f"member_definition not implemented for {self.__class__.__name__}"
+        raise NotImplementedError(msg)
 
 
 DICTIONARY["TStreamerElement"] = TStreamerElement
@@ -230,6 +296,9 @@ DICTIONARY["TStreamerBase"] = TStreamerBase
 @serializable
 class TStreamerBasicType(TStreamerElement):
     def member_definition(self, parent: TStreamerInfo):  # noqa: ARG002
+        if self.fArrayLength > 0:
+            msg = f"Array length {self.fArrayLength} not implemented for {self.__class__.__name__}"
+            raise NotImplementedError(msg)
         type_, fmt = self.fType.as_fmt()
         return f"{self.member_name()}: Annotated[{type_}, Fmt({fmt!r})]", []
 
@@ -240,6 +309,9 @@ DICTIONARY["TStreamerBasicType"] = TStreamerBasicType
 @serializable
 class TStreamerString(TStreamerElement):
     def member_definition(self, parent: TStreamerInfo):  # noqa: ARG002
+        if self.fArrayLength > 0:
+            msg = f"Array length {self.fArrayLength} not implemented for {self.__class__.__name__}"
+            raise NotImplementedError(msg)
         return f"{self.member_name()}: TString", []
 
 
@@ -261,8 +333,14 @@ class TStreamerBasicPointer(TStreamerElement):
     fCountClass: TString
 
     def member_definition(self, parent: TStreamerInfo):
-        _, fmt = ElementType(self.fType - ElementType.kPointer).as_fmt()
-        if self.fCountClass != parent.fName:
+        if self.fArrayLength > 0:
+            msg = f"Array length {self.fArrayLength} not implemented for {self.__class__.__name__}"
+            raise NotImplementedError(msg)
+        _, fmt = ElementType(self.fType - ElementType.kOffsetP).as_fmt()
+        if not (
+            self.fCountClass == parent.fName
+            or normalize(self.fCountClass.fString) in parent.base_classes()
+        ):
             msg = f"fCountClass {self.fCountClass} != parent.fName {parent.fName}"
             raise ValueError(msg)
 
@@ -280,6 +358,9 @@ DICTIONARY["TStreamerBasicPointer"] = TStreamerBasicPointer
 @serializable
 class TStreamerObject(TStreamerElement):
     def member_definition(self, parent: TStreamerInfo):
+        if self.fArrayLength > 0:
+            msg = f"Array length {self.fArrayLength} not implemented for {self.__class__.__name__}"
+            raise NotImplementedError(msg)
         typename = self.type_name()
         dependencies = []
         if typename == parent.class_name():
@@ -298,18 +379,15 @@ DICTIONARY["TStreamerObject"] = TStreamerObject
 @serializable
 class TStreamerObjectPointer(TStreamerElement):
     def member_definition(self, parent: TStreamerInfo):
-        typename = self.type_name()
-        dependencies = []
-        assert typename.endswith("*")
-        typename = typename[:-1]
+        if self.fArrayLength > 0:
+            msg = f"Array length {self.fArrayLength} not implemented for {self.__class__.__name__}"
+            raise NotImplementedError(msg)
+        typename, dependencies = cpptype_to_pytype(self.fTypeName.fString)
         if typename == parent.class_name():
+            dependencies.remove(typename)
             typename = "Self"
-        else:
-            dependencies = [typename]
-        if self.fType == ElementType.kPointerTObjectNullable:
-            typename = f"Pointer[{typename}]"
-        mdef = f"{self.member_name()}: {typename}"
-        return mdef, dependencies
+        mdef = f"{self.member_name()}: Pointer[{typename}]"
+        return mdef, list(dependencies)
 
 
 DICTIONARY["TStreamerObjectPointer"] = TStreamerObjectPointer
@@ -335,11 +413,60 @@ DICTIONARY["TStreamerLoop"] = TStreamerLoop
 
 @serializable
 class TStreamerObjectAny(TStreamerElement):
-    def member_definition(self, parent: TStreamerInfo):  # noqa: ARG002
-        return f"{self.member_name()}: {self.type_name()}", []
+    def member_definition(self, parent: TStreamerInfo):
+        if self.fArrayLength > 0:
+            msg = f"Array length {self.fArrayLength} not implemented for {self.__class__.__name__}"
+            raise NotImplementedError(msg)
+        if self.type_name() == parent.class_name():
+            return f"{self.member_name()}: Self", []
+        # This may be a non-trivial type, e.g. vector<double>
+        # or vector<TLorentzVector>
+        typename, dependencies = cpptype_to_pytype(self.cpp_typename())
+        return f"{self.member_name()}: {typename}", list(dependencies)
 
 
 DICTIONARY["TStreamerObjectAny"] = TStreamerObjectAny
+
+
+@serializable
+class TStreamerObjectAnyPointer(TStreamerElement):
+    def member_definition(self, parent: TStreamerInfo):
+        if self.fArrayLength > 0:
+            msg = f"Array length {self.fArrayLength} not implemented for {self.__class__.__name__}"
+            raise NotImplementedError(msg)
+        typename, dependencies = cpptype_to_pytype(self.fTypeName.fString)
+        if typename == parent.class_name():
+            dependencies.remove(typename)
+            typename = "Self"
+        mdef = f"{self.member_name()}: Pointer[{typename}]"
+        return mdef, list(dependencies)
+
+
+DICTIONARY["TStreamerObjectAnyPointer"] = TStreamerObjectAnyPointer
+
+
+class STLType(IntEnum):
+    kOffsetP = 40
+    vector = 1
+    list = 2
+    deque = 3
+    map = 4
+    set = 5
+    multimap = 6
+    multiset = 7
+    bitset = 8
+    unordered_map = 12
+    RVec = 14
+    "ROOT::VecOps::RVec<T>"
+    vectorPointer = kOffsetP + 1
+    listPointer = kOffsetP + 2
+    dequePointer = kOffsetP + 3
+    mapPointer = kOffsetP + 4
+    setPointer = kOffsetP + 5
+    multimapPointer = kOffsetP + 6
+    multisetPointer = kOffsetP + 7
+    bitsetPointer = kOffsetP + 8
+    string = 365
 
 
 @serializable
@@ -354,13 +481,19 @@ class TStreamerSTL(TStreamerElement):
 
     """
 
-    fSTLtype: Annotated[int, Fmt(">i")]
-    fCType: Annotated[int, Fmt(">i")]
+    fSTLtype: Annotated[STLType, Fmt(">i")]
+    fCType: Annotated[ElementType, Fmt(">i")]
 
     def member_definition(self, parent: TStreamerInfo):  # noqa: ARG002
-        if self.type_name() == "vector<string>":
-            typename = "StdVector[TString]"
-            return f"{self.member_name()}: {typename}", []
+        typename, dependencies = cpptype_to_pytype(self.cpp_typename())
+        if self.fSTLtype == STLType.vector:
+            assert typename.startswith("StdVector[")
+            return f"{self.member_name()}: {typename}", list(dependencies)
+        if self.fSTLtype == STLType.string:
+            assert typename == "string"
+            return f"{self.member_name()}: {typename}", list(dependencies)
+        if self.fSTLtype == STLType.vectorPointer:
+            return f"{self.member_name()}: Pointer[{typename}]", list(dependencies)
         msg = f"STL type {self.type_name()} not implemented yet"
         raise NotImplementedError(msg)
 
@@ -369,20 +502,8 @@ DICTIONARY["TStreamerSTL"] = TStreamerSTL
 
 
 @serializable
-class TStreamerSTLstring(TStreamerElement):
-    """STL string streamer element.
-
-    Attributes:
-        uninterpreted (bytes): Uninterpreted data.
-            TODO: According to ROOT docs, there should not be any extra data here
-    """
-
-    uninterpreted: bytes
-
-    @classmethod
-    def read_members(cls, buffer: ReadBuffer):
-        msg = "TStreamerSTLString.read_members"
-        raise NotImplementedError(msg)
+class TStreamerSTLstring(TStreamerSTL):
+    """STL string streamer element."""
 
 
 # the lower case "string" is intentional
