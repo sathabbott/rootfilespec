@@ -36,22 +36,19 @@ Format of a TDirectory record in release 3.02.06. It is never compressed.
 @serializable
 class TDirectory_header_v622(ROOTSerializable):
     """Format of a TDirectory record in release 6.22.06. It is never compressed.
-
     Header information from https://root.cern/doc/master/tdirectory.html
-
-    Attributes:
-        fVersion (int): TDirectory class version identifier
-        fDatimeC (int): Date and time when directory was created
-        fDatimeM (int): Date and time when directory was last modified
-        fNbytesKeys (int): Number of bytes in the associated KeysList record
-        fNbytesName (int): Number of bytes in TKey+TNamed at creation
     """
 
     fVersion: Annotated[int, Fmt(">h")]
+    """TDirectory class version identifier"""
     fDatimeC: Annotated[int, Fmt(">I")]
+    """Date and time when directory was created"""
     fDatimeM: Annotated[int, Fmt(">I")]
+    """Date and time when directory was last modified"""
     fNbytesKeys: Annotated[int, Fmt(">i")]
+    """Number of bytes in the associated KeysList record"""
     fNbytesName: Annotated[int, Fmt(">i")]
+    """Number of bytes in TKey+TNamed at creation"""
 
     def create_time(self):
         """Date and time when directory was created"""
@@ -64,25 +61,25 @@ class TDirectory_header_v622(ROOTSerializable):
 
 @serializable
 class TDirectory(ROOTSerializable):
-    """TDirectory object
-
-    Attributes:
-        header (TDirectory_header_v622): TDirectory header information
-        fSeekDir (int): Byte offset of directory record in file
-        fSeekParent (int): Byte offset of parent directory record in file
-        fSeekKeys (int): Byte offset of associated KeysList record in file
-        fUUID (TUUID): Universally Unique Identifier
+    """TDirectory object.
+    Binary Spec (the DATA section): https://root.cern.ch/doc/master/tdirectory.html
     """
 
     header: TDirectory_header_v622
+    """TDirectory header information"""
     fSeekDir: int
+    """Byte offset of directory record in file"""
     fSeekParent: int
+    """Byte offset of parent directory record in file"""
     fSeekKeys: int
+    """Byte offset of associated KeysList record in file"""
     fUUID: TUUID
+    """Universally Unique Identifier"""
 
     @classmethod
     def read_members(cls, buffer: ReadBuffer):
         header, buffer = TDirectory_header_v622.read(buffer)
+
         if header.fVersion < 1000:
             (fSeekDir, fSeekParent, fSeekKeys), buffer = buffer.unpack(">iii")
         else:
@@ -97,6 +94,7 @@ class TDirectory(ROOTSerializable):
         buffer = fetch_data(
             self.fSeekKeys, self.header.fNbytesName + self.header.fNbytesKeys
         )
+
         key, _ = TKey.read(buffer)
         if key.fSeekKey != self.fSeekKeys:
             msg = f"TDirectory.read_keylist: fSeekKey mismatch {key.fSeekKey} != {self.fSeekKeys}"
@@ -120,8 +118,15 @@ DICTIONARY["TDirectory"] = TDirectory
 
 @serializable
 class TKeyList(ROOTSerializable, Mapping[str, TKey]):
+    """The TKeyList for a TDirectory contains all the (visible) TKeys
+    For RNTuples, it will only contain the RNTuple Anchor TKey(s)
+    Binary Spec: https://root.cern.ch/doc/master/keyslist.html
+    """
+
     fKeys: list[TKey]
+    """List of TKey objects"""
     padding: bytes
+    """Extra bytes in the end of the TKeyList record (unknown)"""
 
     @classmethod
     def read_members(cls, buffer: ReadBuffer):
@@ -147,6 +152,6 @@ class TKeyList(ROOTSerializable, Mapping[str, TKey]):
     def __getitem__(self, key: str):
         bkey = key.encode("ascii")
         matches = [k for k in self.fKeys if k.fName.fString == bkey]
-        if not len(matches):
+        if not matches:
             raise KeyError(key)
         return max(matches, key=lambda k: k.header.fCycle)

@@ -17,23 +17,20 @@ from rootfilespec.structutil import (
 
 @serializable
 class TKey_header(ROOTSerializable):
-    """TKey header information
-
-    Attributes:
-        fNbytes (int): Number of bytes in compressed record (Tkey+data)
-        fVersion (int): TKey class version identifier
-        fObjlen (int): Number of bytes of uncompressed data
-        fDatime (int): Date and time when record was written to file
-        fKeylen (int): Number of bytes in key structure (TKey)
-        fCycle (int): Cycle of key
-    """
+    """TKey header information"""
 
     fNbytes: Annotated[int, Fmt(">i")]
+    """Number of bytes in compressed record (Tkey+data)"""
     fVersion: Annotated[int, Fmt(">h")]
+    """TKey class version identifier"""
     fObjlen: Annotated[int, Fmt(">i")]
-    fDatime: Annotated[int, Fmt(">I")]
+    """Number of bytes of uncompressed data"""
+    fDatime: Annotated[int, Fmt(">i")]
+    """Date and time when record was written to file"""
     fKeylen: Annotated[int, Fmt(">h")]
+    """Number of bytes in key structure (TKey)"""
     fCycle: Annotated[int, Fmt(">h")]
+    """Cycle of key"""
 
     def write_time(self):
         """Date and time when record was written to file"""
@@ -45,25 +42,22 @@ ObjType = TypeVar("ObjType", bound=ROOTSerializable)
 
 @serializable
 class TKey(ROOTSerializable):
-    """TKey object
-
-    Attributes:
-        header (TKey_header): TKey header information
-        fSeekKey (int): Byte offset of record itself (consistency check)
-        fSeekPdir (int): Byte offset of parent directory record
-        fClassName (TString): Object Class Name
-        fName (TString): Name of the object
-        fTitle (TString): Title of the object
-
+    """TKey object.
     See https://root.cern/doc/master/classTKey.html for more information.
     """
 
     header: TKey_header
+    """TKey header information"""
     fSeekKey: int
+    """Byte offset of record itself (consistency check)"""
     fSeekPdir: int
+    """Byte offset of parent directory record"""
     fClassName: TString
+    """Object Class Name"""
     fName: TString
+    """Name of the object"""
     fTitle: TString
+    """Title of the object"""
 
     @classmethod
     def read_members(cls, buffer: ReadBuffer):
@@ -101,8 +95,12 @@ class TKey(ROOTSerializable):
             self.fSeekKey + self.header.fKeylen,
             self.header.fNbytes - self.header.fKeylen,
         )
+
         compressed = None
+        # fObjlen is the number of bytes of uncompressed data
+        # The length of the buffer is the number of bytes of compressed data
         if len(buffer) != self.header.fObjlen:
+            # This is a compressed object
             compressed, buffer = RCompressed.read(buffer)
             if compressed.header.uncompressed_size() != self.header.fObjlen:
                 msg = "TKey.read_object: uncompressed size mismatch. "
@@ -129,6 +127,10 @@ class TKey(ROOTSerializable):
         else:
             typename = normalize(self.fClassName.fString)
             obj, buffer = DICTIONARY[typename].read(buffer)  # type: ignore[assignment]
+        if typename == "ROOT3a3aRNTuple":
+            # RNTuple is a special case, it has a 64 bit checksum
+            (checksum,), buffer = buffer.unpack(">Q")
+            # TODO: Check the checksum
         if buffer:
             msg = f"TKey.read_object: buffer not empty after reading object of type {typename}."
             msg += f"\n{self=}"
