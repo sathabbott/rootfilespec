@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated
 
-from rootfilespec.bootstrap.RFrame import ListFrame
-from rootfilespec.bootstrap.RLocator import RLocator
-from rootfilespec.bootstrap.RPage import RPage
-from rootfilespec.structutil import (
-    DataFetcher,
-    Fmt,
-    ReadBuffer,
-    ROOTSerializable,
-    serializable,
-)
+from rootfilespec.buffer import DataFetcher, ReadBuffer
+from rootfilespec.rntuple.RFrame import ListFrame
+from rootfilespec.rntuple.RLocator import RLocator
+from rootfilespec.rntuple.RPage import RPage
+from rootfilespec.serializable import Members, ROOTSerializable, serializable
+from rootfilespec.structutil import Fmt
 
 
 @serializable
@@ -86,7 +82,9 @@ class PageLocations(ListFrame[RPageDescription]):
         return pagelist, buffer
 
     @classmethod
-    def read_members(cls, buffer: ReadBuffer) -> tuple[tuple[Any, ...], ReadBuffer]:
+    def update_members(
+        cls, members: Members, buffer: ReadBuffer
+    ) -> tuple[Members, ReadBuffer]:
         """Reads the extra members of the Page List Frame from the buffer."""
         # Read the element offset for this column
         (elementoffset,), buffer = buffer.unpack("<q")
@@ -96,7 +94,9 @@ class PageLocations(ListFrame[RPageDescription]):
             # Read the compression settings
             (compressionsettings,), buffer = buffer.unpack("<I")
 
-        return (elementoffset, compressionsettings), buffer
+        members["elementoffset"] = elementoffset
+        members["compressionsettings"] = compressionsettings
+        return members, buffer
 
 
 @serializable

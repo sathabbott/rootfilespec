@@ -2,12 +2,9 @@ from typing import Annotated, Optional, Protocol
 
 import cramjam  # type: ignore[import-not-found]
 
-from rootfilespec.structutil import (
-    Fmt,
-    ReadBuffer,
-    ROOTSerializable,
-    serializable,
-)
+from rootfilespec.buffer import ReadBuffer
+from rootfilespec.serializable import Members, ROOTSerializable, serializable
+from rootfilespec.structutil import Fmt
 
 
 @serializable
@@ -29,6 +26,7 @@ class RCompressionHeader(ROOTSerializable):
 
     fAlgorithm: Annotated[bytes, Fmt("2s")]
     fVersion: Annotated[int, Fmt("B")]
+    # TODO: Make this a 3-byte integer using a custom MemberSerDe
     fCompressedSize: Annotated[bytes, Fmt("3s")]
     fUncompressedSize: Annotated[bytes, Fmt("3s")]
 
@@ -76,7 +74,7 @@ class RCompressed(ROOTSerializable):
     payload: memoryview
 
     @classmethod
-    def read_members(cls, buffer: ReadBuffer):
+    def update_members(cls, members: Members, buffer: ReadBuffer):
         header, buffer = RCompressionHeader.read(buffer)
         if header.fAlgorithm == b"L4":
             checksum, buffer = buffer.consume(8)
@@ -85,7 +83,10 @@ class RCompressed(ROOTSerializable):
         # Not using .consume() to avoid copying the payload
         nbytes = header.compressed_size()
         payload, buffer = buffer.consume_view(nbytes)
-        return (header, checksum, payload), buffer
+        members["header"] = header
+        members["checksum"] = checksum
+        members["payload"] = payload
+        return members, buffer
 
     def decompress(self) -> memoryview:
         if self.checksum is not None:

@@ -1,19 +1,13 @@
-from __future__ import annotations
-
 from typing import Annotated
 
-from rootfilespec.bootstrap.envelopebase import (
-    REnvelopeLink,
-)
-from rootfilespec.bootstrap.envelopes import FooterEnvelope, HeaderEnvelope
-from rootfilespec.bootstrap.RLocator import LargeLocator
-from rootfilespec.bootstrap.TObject import StreamedObject
+from rootfilespec.bootstrap.streamedobject import StreamedObject
+from rootfilespec.buffer import DataFetcher
 from rootfilespec.dispatch import DICTIONARY
-from rootfilespec.structutil import (
-    DataFetcher,
-    Fmt,
-    serializable,
-)
+from rootfilespec.rntuple import FooterEnvelope, HeaderEnvelope
+from rootfilespec.rntuple.envelope import REnvelopeLink
+from rootfilespec.rntuple.RLocator import LargeLocator
+from rootfilespec.serializable import serializable
+from rootfilespec.structutil import Fmt
 
 
 @serializable

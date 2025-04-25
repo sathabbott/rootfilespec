@@ -1,18 +1,14 @@
 from dataclasses import dataclass
 from typing import Annotated, Union
 
+from rootfilespec.bootstrap.strings import TString
 from rootfilespec.bootstrap.TDirectory import TDirectory
 from rootfilespec.bootstrap.TKey import TKey
 from rootfilespec.bootstrap.TList import TList
-from rootfilespec.bootstrap.TString import TString
 from rootfilespec.bootstrap.TUUID import TUUID
-from rootfilespec.structutil import (
-    DataFetcher,
-    Fmt,
-    ReadBuffer,
-    ROOTSerializable,
-    serializable,
-)
+from rootfilespec.buffer import DataFetcher, ReadBuffer
+from rootfilespec.serializable import Members, ROOTSerializable, serializable
+from rootfilespec.structutil import Fmt
 
 
 @dataclass(order=True)
@@ -151,7 +147,7 @@ class ROOTFile(ROOTSerializable):
     """Padding bytes in the ROOT file."""
 
     @classmethod
-    def read_members(cls, buffer: ReadBuffer):
+    def update_members(cls, members: Members, buffer: ReadBuffer):
         """Reads and parses a ROOT file from the given buffer.
         Binary Spec: https://root.cern.ch/doc/master/classTFile.html
                      https://root.cern.ch/doc/master/header.html
@@ -168,7 +164,11 @@ class ROOTFile(ROOTSerializable):
         else:
             header, buffer = ROOTFile_header_v622_large.read(buffer)  # type: ignore[assignment]
         padding, buffer = buffer.consume(header.fBEGIN - buffer.relpos)
-        return (magic, fVersion, header, padding), buffer
+        members["magic"] = magic
+        members["fVersion"] = fVersion
+        members["header"] = header
+        members["padding"] = padding
+        return members, buffer
 
     def get_TFile(self, fetch_data: DataFetcher):
         """Get the TFile object (root directory) from the file."""

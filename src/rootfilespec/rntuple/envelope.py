@@ -1,21 +1,43 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Annotated, TypeVar
 
 from typing_extensions import Self
 
-from rootfilespec.bootstrap.RLocator import RLocator
-from rootfilespec.structutil import (
-    DataFetcher,
-    Fmt,
-    ReadBuffer,
-    ROOTSerializable,
-    serializable,
-)
+from rootfilespec.buffer import DataFetcher, ReadBuffer
+from rootfilespec.rntuple.RLocator import RLocator
+from rootfilespec.serializable import Members, ROOTSerializable, serializable
+from rootfilespec.structutil import Fmt
 
 # Map of envelope type to string for printing
 ENVELOPE_TYPE_MAP = {0x00: "Reserved"}
+
+
+@dataclass
+class RFeatureFlags(ROOTSerializable):
+    """A class representing the RNTuple Feature Flags.
+    RNTuple Feature Flags appear in the Header and Footer Envelopes.
+    This class reads the RNTuple Feature Flags from the buffer.
+    It also checks if the flags are set for a given feature.
+    It aborts reading when an unknown feature is encountered (unknown bit set).
+    """
+
+    flags: int
+    """The RNTuple Feature Flags (signed 64-bit integer)"""
+
+    @classmethod
+    def update_members(cls, members: Members, buffer: ReadBuffer):
+        """Reads the RNTuple Feature Flags from the given buffer."""
+
+        # Read the flags from the buffer
+        (flags,), buffer = buffer.unpack("<q")  # Signed 64-bit integer
+
+        # There are no feature flags defined for RNTuple yet
+        # So abort if any bits are set
+        if flags != 0:
+            msg = f"Unknown feature flags encountered. int:{flags}; binary:{bin(flags)}"
+            raise NotImplementedError(msg)
+        members["flags"] = flags
+        return members, buffer
 
 
 @dataclass
@@ -62,8 +84,9 @@ class REnvelope(ROOTSerializable):
             msg = f"Length of envelope ({length} minus 8) of type {typeID} does not match buffer length ({len(buffer)})"
             raise ValueError(msg)
 
+        members = {"typeID": typeID, "length": length}
         #### Get the payload
-        cls_args, buffer = cls.read_members(buffer)
+        members, buffer = cls.update_members(members, buffer)
 
         #### Consume any unknown trailing information in the envelope
         _unknown, buffer = buffer.consume(
@@ -74,8 +97,8 @@ class REnvelope(ROOTSerializable):
 
         #### Get the checksum (appended to envelope when writing to disk)
         (checksum,), buffer = buffer.unpack("<Q")  # Last 8 bytes of the envelope
-
-        envelope = cls(typeID, length, checksum, *cls_args)
+        members["checksum"] = checksum
+        envelope = cls(**members)
         envelope._unknown = _unknown
         return envelope, buffer
 

@@ -1,17 +1,12 @@
 from typing import Annotated, Optional, TypeVar, Union, overload
 
 from rootfilespec.bootstrap.compression import RCompressed
-from rootfilespec.bootstrap.TString import TString
+from rootfilespec.bootstrap.strings import TString
 from rootfilespec.bootstrap.util import fDatime_to_datetime
+from rootfilespec.buffer import DataFetcher, ReadBuffer
 from rootfilespec.dispatch import DICTIONARY, normalize
-from rootfilespec.structutil import (
-    Args,
-    DataFetcher,
-    Fmt,
-    ReadBuffer,
-    ROOTSerializable,
-    serializable,
-)
+from rootfilespec.serializable import Members, ROOTSerializable, serializable
+from rootfilespec.structutil import Fmt
 
 
 @serializable
@@ -45,7 +40,7 @@ class TKey_header(ROOTSerializable):
 
     def is_embedded(self) -> bool:
         """Return if the key's payload is embedded"""
-        return self.fNbytes < self.fKeylen
+        return self.fNbytes <= self.fKeylen
 
 
 ObjType = TypeVar("ObjType", bound=ROOTSerializable)
@@ -71,19 +66,9 @@ class TKey(ROOTSerializable):
     """Title of the object"""
 
     @classmethod
-    def read(cls, buffer: ReadBuffer):
-        start_position = buffer.relpos
-        members, buffer = cls.read_members(buffer)
-        keylen = buffer.relpos - start_position
-        header = members[0]
-        if keylen != header.fKeylen and keylen != header.fKeylen + 4:
-            # TODO: understand why we sometimes read 4 more bytes
-            msg = f"TKey.read: key length mismatch: read {keylen}, header expects {header.fKeylen}"
-            raise ValueError(msg)
-        return cls(*members), buffer
-
-    @classmethod
-    def read_members(cls, buffer: ReadBuffer) -> tuple[Args, ReadBuffer]:
+    def update_members(
+        cls, members: Members, buffer: ReadBuffer
+    ) -> tuple[Members, ReadBuffer]:
         header, buffer = TKey_header.read(buffer)
         if header.fVersion < 1000:
             (fSeekKey, fSeekPdir), buffer = buffer.unpack(">ii")
@@ -95,7 +80,13 @@ class TKey(ROOTSerializable):
         if header.fVersion % 1000 not in (2, 4):
             msg = f"TKey.read_members: unexpected version {header.fVersion}"
             raise ValueError(msg)
-        return (header, fSeekKey, fSeekPdir, fClassName, fName, fTitle), buffer
+        members["header"] = header
+        members["fSeekKey"] = fSeekKey
+        members["fSeekPdir"] = fSeekPdir
+        members["fClassName"] = fClassName
+        members["fName"] = fName
+        members["fTitle"] = fTitle
+        return members, buffer
 
     @overload
     def read_object(self, fetch_data: DataFetcher) -> ROOTSerializable: ...

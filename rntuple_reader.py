@@ -3,16 +3,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from skhep_testdata import data_path
+
 from rootfilespec.bootstrap import ROOTFile
 from rootfilespec.bootstrap.RAnchor import ROOT3a3aRNTuple
-from rootfilespec.bootstrap.RPage import RPage
+from rootfilespec.buffer import ReadBuffer
 from rootfilespec.dynamic import streamerinfo_to_classes
-from rootfilespec.structutil import ReadBuffer
+from rootfilespec.rntuple.RPage import RPage
 
 if __name__ == "__main__":
     initial_read_size = 512
     # path = Path("../TTToSemiLeptonic_UL18JMENanoAOD-zstd.root")
-    path = Path("tests/RNTuple.root")
+    path = Path(data_path("rntviewer-testfile-uncomp-single-rntuple-v1-0-0-0.root"))
     print(f"\033[1;36mReading '{path}'...\n\033[0m")
     with path.open("rb") as filehandle:
 
@@ -66,6 +68,7 @@ if __name__ == "__main__":
 
         # Get TStreamerInfo (List of classes used in the file)
         streamerinfo = file.get_StreamerInfo(fetch_data)
+        assert streamerinfo is not None, "StreamerInfo is None"
         classes = streamerinfo_to_classes(streamerinfo)
         with Path("classes.py").open("w") as f:
             f.write(classes)
@@ -116,7 +119,7 @@ if __name__ == "__main__":
                 for page_location_list in page_location_lists:
                     pages = page_location_list.get_pages(fetch_data)
                     # print(f"\n{pages=}\n")
-                    cluster_column_page_lists.append(pages)
+                    cluster_column_page_lists.extend(pages)
 
                 # Print attributes of the RNTuple Pages
                 for i_cluster, column_page_lists in enumerate(

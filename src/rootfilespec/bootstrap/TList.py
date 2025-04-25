@@ -1,8 +1,9 @@
 from rootfilespec.bootstrap.streamedobject import read_streamed_item
-from rootfilespec.bootstrap.TObject import StreamHeader, TObject, TObjectBits
-from rootfilespec.bootstrap.TString import TString
+from rootfilespec.bootstrap.strings import TString
+from rootfilespec.bootstrap.TObject import TObject, TObjectBits
+from rootfilespec.buffer import ReadBuffer
 from rootfilespec.dispatch import DICTIONARY
-from rootfilespec.structutil import ReadBuffer, ROOTSerializable, serializable
+from rootfilespec.serializable import Members, ROOTSerializable, serializable
 
 
 @serializable
@@ -19,20 +20,13 @@ class TList(TObject):
     """List of objects."""
 
     @classmethod
-    def read(cls, buffer: ReadBuffer):
-        header, buffer = StreamHeader.read(buffer)
-        (fVersion, fUniqueID, fBits, pidf), buffer = TObject.read_members(buffer)
-        if fVersion == 1 << 14 and (fBits & TObjectBits.kNotSure):
+    def update_members(cls, members: Members, buffer: ReadBuffer):
+        base_tobject = TObject(**members)
+        if base_tobject.fVersion == 1 << 14 and (
+            base_tobject.fBits & TObjectBits.kNotSure
+        ):
             # This looks like schema evolution data
-            # print(f"Suspicious TObject header: {header}")
-            # print(f"Buffer: {buffer}")
-            junk, buffer = buffer.consume(len(buffer) - 1)
-            return cls(fVersion, fUniqueID, fBits, pidf, TString(junk), 0, ()), buffer
-        (fName, fN, items), buffer = cls.read_members(buffer)
-        return cls(fVersion, fUniqueID, fBits, pidf, fName, fN, items), buffer
-
-    @classmethod
-    def read_members(cls, buffer: ReadBuffer):
+            raise ValueError()
         fName, buffer = TString.read(buffer)
         (fN,), buffer = buffer.unpack(">i")
         items: list[TObject] = []
@@ -47,7 +41,10 @@ class TList(TObject):
                 msg = f"Expected null pad byte but got {pad!r}"
                 raise ValueError(msg)
             items.append(item)
-        return (fName, fN, tuple(items)), buffer
+        members["fName"] = fName
+        members["fN"] = fN
+        members["items"] = tuple(items)
+        return members, buffer
 
 
 DICTIONARY["TList"] = TList
@@ -67,20 +64,18 @@ class TObjArray(TObject):
     """List of objects."""
 
     @classmethod
-    def read_members(cls, buffer: ReadBuffer):
+    def update_members(cls, members: Members, buffer: ReadBuffer):
         fName, buffer = TString.read(buffer)
         (nObjects, fLowerBound), buffer = buffer.unpack(">ii")
         objects: list[ROOTSerializable] = []
         for _ in range(nObjects):
             item, buffer = read_streamed_item(buffer)
-            if isinstance(item, StreamHeader):
-                # TODO: Resolve or build pointer to TObject
-                continue
-            # if not isinstance(item, TObject):
-            #     msg = f"Expected TObject but got {item!r}"
-            #     raise ValueError(msg)
             objects.append(item)
-        return (fName, nObjects, fLowerBound, tuple(objects)), buffer
+        members["fName"] = fName
+        members["nObjects"] = nObjects
+        members["fLowerBound"] = fLowerBound
+        members["objects"] = tuple(objects)
+        return members, buffer
 
 
 DICTIONARY["TObjArray"] = TObjArray
