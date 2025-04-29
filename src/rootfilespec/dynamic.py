@@ -1,3 +1,5 @@
+import warnings
+
 from rootfilespec import bootstrap
 from rootfilespec.bootstrap.TStreamerInfo import (
     ClassDef,
@@ -17,10 +19,14 @@ from rootfilespec.container import (
     BasicArray,
     FixedSizeArray,
     StdVector,
+    StdSet,
+    StdDeque,
+    StdMap,
+    StdPair,
 )
 from rootfilespec.dispatch import DICTIONARY
 from rootfilespec.serializable import serializable
-from rootfilespec.structutil import Fmt
+from rootfilespec.structutil import Fmt, StdBitset
 
 """
 
@@ -44,6 +50,10 @@ def streamerinfo_to_classes(streamerinfo: bootstrap.TList) -> str:
         classdef = item.class_definition()
         classes[classdef.name] = classdef
 
+    # Collect all warnings for users here since the stack level
+    # is not predictable in the recursive write function
+    warning_log: list[str] = []
+
     # Write out in dependency order
     def write(classdef: ClassDef):
         for dep in classdef.dependencies:
@@ -51,13 +61,27 @@ def streamerinfo_to_classes(streamerinfo: bootstrap.TList) -> str:
             if depdef is not None:
                 write(depdef)
             elif dep not in declared:
-                msg = f"Class {classdef.name} depends on {dep}, which is not declared"
-                raise ValueError(msg)
+                if dep == classdef.name:
+                    msg = f"Class {classdef.name} depends on itself, which is not allowed (likely an unimplemented container type)"
+                else:
+                    msg = f"Class {classdef.name} depends on {dep} which is missing"
+                warning_log.append("    " + msg)
+                lines.append(
+                    f"class {dep}(Uninterpreted):\n    pass\nDICTIONARY['{dep}'] = {dep}\n"
+                )
+                declared.add(dep)
         lines.append(classdef.code)
         declared.add(classdef.name)
 
     while classes:
         _, classdef = classes.popitem()
         write(classdef)
+
+    # Write out the warnings
+    if warning_log:
+        msg = "Errors were found in the StreamerInfo:\n"
+        msg += "\n".join(warning_log)
+        msg += "\nThese members will be uninterpreted and skipped."
+        warnings.warn(msg, UserWarning, stacklevel=2)
 
     return "\n".join(lines)

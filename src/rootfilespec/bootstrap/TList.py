@@ -1,6 +1,6 @@
-from typing import Annotated
+from typing import Annotated, Union
 
-from rootfilespec.bootstrap.streamedobject import read_streamed_item
+from rootfilespec.bootstrap.streamedobject import Ref, read_streamed_item
 from rootfilespec.bootstrap.strings import TString
 from rootfilespec.bootstrap.TObject import TObject
 from rootfilespec.buffer import ReadBuffer
@@ -33,25 +33,29 @@ class TList(TSeqCollection):
     Reference: https://root.cern/doc/master/streamerinfo.html (TList section)
     """
 
-    items: tuple[TObject, ...]
+    items: list[Union[TObject, Ref[TObject]]]
     """List of objects."""
 
     @classmethod
     def update_members(cls, members: Members, buffer: ReadBuffer):
-        items: list[TObject] = []
+        items: list[Union[TObject, Ref[TObject]]] = []
         fSize: int = members["fSize"]
         for _ in range(fSize):
             item, buffer = read_streamed_item(buffer)
-            if not isinstance(item, TObject):
+            if not (isinstance(item, (TObject, Ref))):
                 msg = f"Expected TObject but got {item!r}"
                 raise ValueError(msg)
             # No idea why there is a null pad byte here
             pad, buffer = buffer.consume(1)
             if pad != b"\x00":
-                msg = f"Expected null pad byte but got {pad!r}"
-                raise ValueError(msg)
+                if pad == b"\x01":
+                    # TODO: understand this case (e.g. uproot-issue-350.root)
+                    (mystery,), buffer = buffer.unpack(">B")
+                else:
+                    msg = f"Unexpected pad byte in TList: {pad!r}"
+                    raise ValueError(msg)
             items.append(item)
-        members["items"] = tuple(items)
+        members["items"] = items
         return members, buffer
 
 
