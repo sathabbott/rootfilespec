@@ -62,7 +62,9 @@ class StreamHeader(ROOTSerializable):
             if fVersion & _StreamConstants.kStreamedMemberwise:
                 fVersion &= ~_StreamConstants.kStreamedMemberwise
                 memberwise = True
-            elif fVersion == 0 and fByteCount >= 6:
+                msg = "Memberwise streaming not implemented"
+                raise NotImplementedError(msg)
+            if fVersion == 0 and fByteCount >= 6:
                 # This class is versioned by its streamer checksum instead
                 (checksum,), buffer = buffer.unpack(">I")
                 fVersion = checksum
@@ -88,8 +90,8 @@ class StreamHeader(ROOTSerializable):
                 fClassRef = (fClassInfo & ~_StreamConstants.kClassMask) - 2
                 fClassName = buffer.local_refs.get(fClassRef, None)
                 if fClassName is None:
-                    msg = f"ClassRef {fClassRef} not found in buffer local_refs"
-                    raise ValueError(msg)
+                    msg = f"ClassRef {fClassRef} not found in buffer local_refs (likely inside an uninterpreted object)"
+                    raise NotImplementedError(msg)
         return cls(fByteCount, fVersion, fClassName, fClassRef, memberwise), buffer
 
 
