@@ -5,12 +5,19 @@ from pathlib import Path
 import pytest
 from skhep_testdata import data_path, known_files  # type: ignore[import-not-found]
 
-from rootfilespec.bootstrap import ROOTFile, TDirectory
+from rootfilespec.bootstrap import ROOT3a3aRNTuple, ROOTFile, TDirectory
 from rootfilespec.buffer import DataFetcher, ReadBuffer
 from rootfilespec.dispatch import DICTIONARY
 from rootfilespec.dynamic import streamerinfo_to_classes
 
 TESTABLE_FILES = [f for f in known_files if f.endswith(".root")]
+
+
+def _walk_RNTuple(anchor: ROOT3a3aRNTuple, fetch_data: DataFetcher):
+    footer = anchor.get_footer(fetch_data)
+    pagelists = footer.get_pagelists(fetch_data)
+    for page_locations in pagelists:
+        page_locations.get_pages(fetch_data)
 
 
 def _walk(
@@ -33,6 +40,8 @@ def _walk(
             continue
         if isinstance(obj, TDirectory) and (maxdepth < 0 or depth < maxdepth):
             _walk(obj, fetch_data, failures, depth=depth + 1)
+        elif isinstance(obj, ROOT3a3aRNTuple):
+            _walk_RNTuple(obj, fetch_data)
 
 
 @pytest.mark.parametrize("filename", TESTABLE_FILES)
