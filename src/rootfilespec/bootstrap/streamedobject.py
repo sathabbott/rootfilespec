@@ -10,6 +10,7 @@ from rootfilespec.serializable import (
     MemberType,
     ReadObjMethod,
     ROOTSerializable,
+    _ReadWrapper,
     serializable,
 )
 
@@ -62,8 +63,11 @@ class StreamHeader(ROOTSerializable):
             if fVersion & _StreamConstants.kStreamedMemberwise:
                 fVersion &= ~_StreamConstants.kStreamedMemberwise
                 memberwise = True
-                msg = "Memberwise streaming not implemented"
-                raise NotImplementedError(msg)
+                if fVersion != 9:
+                    # It seems all STL collections are v9?
+                    # These are the only ones we know how to read memberwise so far
+                    msg = f"Memberwise streaming not implemented for version {fVersion}"
+                    raise NotImplementedError(msg)
             if fVersion == 0 and fByteCount >= 6:
                 # This class is versioned by its streamer checksum instead
                 (checksum,), buffer = buffer.unpack(">I")
@@ -106,6 +110,10 @@ class _RefReader:
 
 
 T = TypeVar("T", bound=MemberType)
+
+
+class Some:
+    """Placeholder to indicate the referred object exists"""
 
 
 class Ref(ContainerSerDe, Generic[T]):
@@ -155,7 +163,7 @@ def read_streamed_item(
             return Ref(None), buffer
         # TODO: fetch the referenced object from the buffer.instance_refs
         _, buffer = buffer.consume(4)
-        return Ref(None), buffer
+        return Ref(Some()), buffer
     if itemheader.fClassName:
         clsname = normalize(itemheader.fClassName)
         if clsname not in DICTIONARY:
@@ -174,6 +182,13 @@ def read_streamed_item(
         dynmethod = DICTIONARY[clsname].read
     elif method is not None:
         clsname = f"Ref ({method})"
+        if (
+            isinstance(method.membermethod, _ReadWrapper)
+            and method.membermethod.objtype.__name__ == "RooAbsCategory"
+        ):
+            # something fishy
+            extraheader, buffer = StreamHeader.read(buffer)
+            return read_streamed_item(buffer, method)
 
         def dynmethod(buffer: ReadBuffer) -> tuple[ROOTSerializable, ReadBuffer]:
             item, buffer = method(buffer)
@@ -202,6 +217,9 @@ def _auto_TObject_base(buffer) -> tuple[StreamHeader, ReadBuffer]:
         itemheader = StreamHeader(0, version, None, None, False)
     else:
         itemheader, buffer = StreamHeader.read(buffer)
+        if itemheader.memberwise:
+            msg = "Memberwise streaming not implemented for TObject base class"
+            raise NotImplementedError(msg)
     return itemheader, buffer
 
 
@@ -249,6 +267,10 @@ def _read_all_members(
         elif issubclass(base, ROOTSerializable):
             members, buffer = base.update_members(members, buffer)
     members, buffer = cls.update_members(members, buffer)
+    if cls.__name__ == "RooRealVar":
+        # There seems to be some extra data after the RooRealVar object
+        moreheader, _ = StreamHeader.read(buffer)
+        buffer = buffer[moreheader.fByteCount + 4 :]
     if indent == 0 and buffer.relpos != end_position:
         # TODO: figure out why this does not hold in the subclasses (indent > 0)
         msg = f"Expected position {end_position} but got {buffer.relpos}"

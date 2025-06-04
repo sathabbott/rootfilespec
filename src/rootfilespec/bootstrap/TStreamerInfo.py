@@ -249,6 +249,7 @@ class ElementType(IntEnum):
 
     def as_fmt(self) -> str:
         """Get the format character for this element type."""
+        # TODO: just return Fmt() type
         fmtmap = {
             self.kChar: ">b",
             self.kShort: ">h",
@@ -430,8 +431,12 @@ class TStreamerObjectPointer(TStreamerElement):
         if self.fArrayLength > 0:
             msg = f"Array length not implemented for {self.__class__.__name__}"
             raise NotImplementedError(msg)
-        assert self.fTypeName.fString.endswith(b"*")
-        typename, dependencies = cpptype_to_pytype(self.fTypeName.fString)
+        ctype = self.fTypeName.fString
+        if not ctype.endswith(b"*"):
+            # appears to happen when std::unique_ptr<T> is used
+            # e.g. RooRealVar's std::unique_ptr<RooAbsBinning> _binning (since v6-21-02)
+            ctype += b"*"
+        typename, dependencies = cpptype_to_pytype(ctype)
         this = parent.class_name()
         if this in dependencies:
             dependencies.remove(this)

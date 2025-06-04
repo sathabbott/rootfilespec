@@ -14,8 +14,8 @@ from rootfilespec.serializable import (
     MemberType,
     ReadObjMethod,
     _build_read,
-    _ObjectReader,
 )
+from rootfilespec.structutil import _FmtReader
 
 
 @dataclasses.dataclass
@@ -166,9 +166,7 @@ class ObjectArray(MemberSerDe):
         assert get_origin(ftype) is list, "ObjectArray must be used with a list type"
         inner_type, *_ = get_args(ftype)
         inner_reader = _build_read(inner_type)
-        if isinstance(inner_reader, _ObjectReader) and isinstance(
-            inner_reader.membermethod, _StdVectorReader
-        ):
+        if isinstance(inner_reader.membermethod, _StdVectorReader):
             # TODO: likely all nested StdVector have no header
             inner_reader.membermethod.hasheader = False
         return _ObjectArrayReader(fname, self.size, inner_reader)
@@ -203,9 +201,7 @@ class StdVector(ContainerSerDe, Generic[T]):
     @classmethod
     def build_reader(cls, fname: str, inner_reader: ReadObjMethod):
         """Build a reader for the std::vector<T>."""
-        if isinstance(inner_reader, _ObjectReader) and isinstance(
-            inner_reader.membermethod, _StdVectorReader
-        ):
+        if isinstance(inner_reader.membermethod, _StdVectorReader):
             inner_reader.membermethod.hasheader = False
         return _StdVectorReader(fname, inner_reader)
 
@@ -213,12 +209,42 @@ class StdVector(ContainerSerDe, Generic[T]):
     def read_as(cls, inner_reader: ReadObjMethod, hasheader: bool, buffer: ReadBuffer):
         if hasheader:
             header, buffer = StreamHeader.read(buffer)
+            if header.fVersion == 1:
+                # seen in RooVectorDataStore3a3aRealVector _vec: StdVector[Annotated[float, Fmt('>d')]]
+                header, buffer = StreamHeader.read(buffer)
+            if header.fVersion != 9:
+                msg = f"Unexpected StdVector version {header.fVersion}"
+                raise ValueError(msg)
             # TODO: byte count check
             if header.memberwise:
+                if isinstance(inner_reader.membermethod, _StdPairReader):
+                    # as seen in uproot-issue38c.root TEfficiency fBeta_bin_params std::pair<double, double>
+                    (dunno, dunno2, n), buffer = buffer.unpack(">hIi")
+                    assert dunno == 0, f"Unexpected member version {dunno}"
+                    assert dunno2 == 0xD7BED2, f"Unexpected member checksum {dunno2}"
+                    firsts = []
+                    for _ in range(n):
+                        first, buffer = inner_reader.membermethod.key_reader(buffer)
+                        firsts.append(first)
+                    seconds = []
+                    for _ in range(n):
+                        second, buffer = inner_reader.membermethod.value_reader(buffer)
+                        seconds.append(second)
+                    return cls(list(zip(firsts, seconds))), buffer  # type: ignore[arg-type]
                 msg = "Memberwise reading of StdVector not implemented"
                 raise NotImplementedError(msg)
         (n,), buffer = buffer.unpack(">i")
         items: list[T] = []
+        if isinstance(inner_reader.membermethod, _FmtReader):
+            # if the inner reader is a format reader, we can read faster
+            fmt = inner_reader.membermethod.fmt
+            itemsize = np.dtype(fmt).itemsize
+            data, buffer = buffer.consume(n * itemsize)
+            items = [
+                inner_reader.membermethod.outtype(x)
+                for x in np.frombuffer(data, dtype=fmt, count=n)
+            ]
+            return cls(items), buffer
         for _ in range(n):
             obj, buffer = inner_reader(buffer)
             items.append(obj)
@@ -233,27 +259,33 @@ class StdSet(ContainerSerDe, Generic[T]):
     """The items in the set."""
 
     @classmethod
-    def build_reader(cls, fname: str, inner_reader: ReadObjMethod):  # noqa: ARG003
+    def build_reader(cls, fname: str, inner_reader: ReadObjMethod):
         def update_members(members: Members, buffer: ReadBuffer):
-            msg = "StdSet not implemented"
-            raise NotImplementedError(msg)
-            # (n,), buffer = buffer.unpack(">i")
-            # items: set[T] = set()
-            # for _ in range(n):
-            #     obj, buffer = inner_reader(buffer)
-            #     items.add(obj)
-            # members[fname] = items
-            # return members, buffer
+            members[fname], buffer = cls.read_as(inner_reader, buffer)
+            return members, buffer
 
         return update_members
+
+    @classmethod
+    def read_as(cls, inner_reader: ReadObjMethod, buffer: ReadBuffer):
+        header, buffer = StreamHeader.read(buffer)
+        if header.memberwise:
+            msg = "Set with memberwise reading"
+            raise NotImplementedError(msg)
+        (n,), buffer = buffer.unpack(">i")
+        items: set[T] = set()
+        for _ in range(n):
+            item, buffer = inner_reader(buffer)
+            items.add(item)
+        return cls(items), buffer
 
 
 @dataclasses.dataclass
 class StdDeque(ContainerSerDe, Generic[T]):
-    """A class to represent a std::set<T>."""
+    """A class to represent a std::deque<T>."""
 
-    items: set[T]
-    """The items in the set."""
+    items: tuple[T]
+    """The items in the dequeue."""
 
     @classmethod
     def build_reader(cls, fname: str, inner_reader: ReadObjMethod):  # noqa: ARG003
@@ -289,12 +321,42 @@ class StdMap(AssociativeContainerSerDe, Generic[K, V]):
     def read_as(
         cls, key_reader: ReadObjMethod, value_reader: ReadObjMethod, buffer: ReadBuffer
     ):
+        # TODO: split this function out into a _StdMapReader with flags
         header, buffer = StreamHeader.read(buffer)
-        if header.memberwise:
-            msg = "Suspicious map with memberwise reading, incorrect length seen in uproot-issue465-flat.root"
-            raise NotImplementedError(msg)
-        (n,), buffer = buffer.unpack(">i")
         items: dict[K, V] = {}
+        if header.memberwise:
+            # member version info precedes the member lists
+            # there should only be one member, the std::pair<K, V> type
+            (mversion, mchecksum, n), buffer = buffer.unpack(">hIi")
+            assert mversion == 0, f"Unexpected member version {mversion}"
+            # TODO: lookup deserializer for the checksum?
+            # e.g. uproot-issue465-flat.root (has length but incorrect?)
+            if n == 0:
+                # empty map, no keys or values
+                return cls(items), buffer
+            end_position = None
+            if not isinstance(key_reader.membermethod, _FmtReader):
+                start_position = buffer.relpos
+                keyheader, buffer = StreamHeader.read(buffer)
+                end_position = start_position + keyheader.fByteCount + 4
+            keys: list[K] = []
+            for _ in range(n):
+                key, buffer = key_reader(buffer)
+                keys.append(key)
+            if end_position:
+                assert buffer.relpos == end_position
+                end_position = None
+            if not isinstance(value_reader.membermethod, _FmtReader):
+                start_position = buffer.relpos
+                valueheader, buffer = StreamHeader.read(buffer)
+                end_position = start_position + valueheader.fByteCount + 4
+            for key in keys:
+                value, buffer = value_reader(buffer)
+                items[key] = value
+            if end_position:
+                assert buffer.relpos == end_position
+            return cls(items), buffer
+        (n,), buffer = buffer.unpack(">i")
         for _ in range(n):
             key, buffer = key_reader(buffer)
             value, buffer = value_reader(buffer)
@@ -303,27 +365,33 @@ class StdMap(AssociativeContainerSerDe, Generic[K, V]):
 
 
 @dataclasses.dataclass
-class StdPair(AssociativeContainerSerDe, Generic[K, V]):
-    """A class to represent a std::pair<K, V>."""
+class _StdPairReader:
+    name: str
+    key_reader: ReadObjMethod
+    value_reader: ReadObjMethod
 
-    items: tuple[K, V]
-    """The items in the pair."""
+    def __call__(
+        self, members: Members, buffer: ReadBuffer
+    ) -> tuple[Members, ReadBuffer]:
+        raise NotImplementedError
+        # key, buffer = self.key_reader(buffer)
+        # value, buffer = self.value_reader(buffer)
+        # members[self.name] = StdPair(key, value)
+        # return members, buffer
+
+
+@dataclasses.dataclass
+class StdPair(AssociativeContainerSerDe, Generic[K, V]):
+    """A class to represent a std::pair<K, V>.
+
+    TODO: suspect this is not needed since the pair streamer is often defined.
+    """
+
+    first: K
+    second: V
 
     @classmethod
     def build_reader(
         cls, fname: str, key_reader: ReadObjMethod, value_reader: ReadObjMethod
     ):
-        def update_members(members: Members, buffer: ReadBuffer):
-            members[fname], buffer = cls.read_as(key_reader, value_reader, buffer)
-            return members, buffer
-
-        return update_members
-
-    @classmethod
-    def read_as(
-        cls, key_reader: ReadObjMethod, value_reader: ReadObjMethod, buffer: ReadBuffer
-    ):
-        raise NotImplementedError
-        # key, buffer = key_reader(buffer)
-        # value, buffer = value_reader(buffer)
-        # return cls((key, value)), buffer
+        return _StdPairReader(fname, key_reader, value_reader)
