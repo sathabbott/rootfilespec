@@ -104,6 +104,11 @@ disallow_incomplete_defs = false
 module = "tests.*"
 disallow_any_generics = false
 
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*"]
+follow_imports = "skip"
+follow_imports_for_stubs = true
+
 
 [tool.ruff.lint]
 extend-select = [
