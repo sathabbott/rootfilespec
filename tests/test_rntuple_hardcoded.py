@@ -350,6 +350,13 @@ def test_read_contributors():
                             ),
                             uncompressedSize=176,
                             columnType=ColumnType.kIndex64,
+                            clusterID=0,
+                            columnID=0,
+                            fieldID=0,
+                            fieldDescription=rntuple.schemaDescription.fieldDescriptions[
+                                0
+                            ],
+                            fieldPath=b"firstName",
                         )
                     ],
                     [
@@ -360,6 +367,13 @@ def test_read_contributors():
                             ),
                             uncompressedSize=178,
                             columnType=ColumnType.kChar,
+                            clusterID=0,
+                            columnID=1,
+                            fieldID=0,
+                            fieldDescription=rntuple.schemaDescription.fieldDescriptions[
+                                0
+                            ],
+                            fieldPath=b"firstName",
                         )
                     ],
                     [
@@ -370,6 +384,13 @@ def test_read_contributors():
                             ),
                             uncompressedSize=176,
                             columnType=ColumnType.kIndex64,
+                            clusterID=0,
+                            columnID=2,
+                            fieldID=1,
+                            fieldDescription=rntuple.schemaDescription.fieldDescriptions[
+                                1
+                            ],
+                            fieldPath=b"lastName",
                         )
                     ],
                     [
@@ -380,6 +401,13 @@ def test_read_contributors():
                             ),
                             uncompressedSize=193,
                             columnType=ColumnType.kChar,
+                            clusterID=0,
+                            columnID=3,
+                            fieldID=1,
+                            fieldDescription=rntuple.schemaDescription.fieldDescriptions[
+                                1
+                            ],
+                            fieldPath=b"lastName",
                         )
                     ],
                 ]
@@ -598,6 +626,13 @@ def test_read_multiple_rntuples():
                             ),
                             uncompressedSize=400,
                             columnType=ColumnType.kSplitReal32,
+                            clusterID=0,
+                            columnID=0,
+                            fieldID=0,
+                            fieldDescription=rntuple_a.schemaDescription.fieldDescriptions[
+                                0
+                            ],
+                            fieldPath=b"f",
                         )
                     ]
                 ]
@@ -791,6 +826,13 @@ def test_read_multiple_rntuples():
                             ),
                             uncompressedSize=400,
                             columnType=ColumnType.kSplitInt32,
+                            clusterID=0,
+                            columnID=0,
+                            fieldID=0,
+                            fieldDescription=rntuple_b.schemaDescription.fieldDescriptions[
+                                0
+                            ],
+                            fieldPath=b"g",
                         )
                     ]
                 ]
