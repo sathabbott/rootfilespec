@@ -36,9 +36,9 @@ class ROOT3a3aRNTuple(StreamedObject):
     @property
     def header_locator(self) -> "REnvelopeLocator[HeaderEnvelope]":
         """Get a locator for the RNTuple Header Envelope."""
-        from rootfilespec.rntuple.envelope import REnvelopeLocator  # noqa: PLC0415
-        from rootfilespec.rntuple.header import HeaderEnvelope  # noqa: PLC0415
-        from rootfilespec.rntuple.RLocator import LargeLocator  # noqa: PLC0415
+        from rootfilespec.rntuple.envelope import REnvelopeLocator
+        from rootfilespec.rntuple.header import HeaderEnvelope
+        from rootfilespec.rntuple.RLocator import LargeLocator
 
         return REnvelopeLocator(
             self.fLenHeader,
@@ -49,9 +49,9 @@ class ROOT3a3aRNTuple(StreamedObject):
     @property
     def footer_locator(self) -> "REnvelopeLocator[FooterEnvelope]":
         """Get a locator for the RNTuple Footer Envelope."""
-        from rootfilespec.rntuple.envelope import REnvelopeLocator  # noqa: PLC0415
-        from rootfilespec.rntuple.footer import FooterEnvelope  # noqa: PLC0415
-        from rootfilespec.rntuple.RLocator import LargeLocator  # noqa: PLC0415
+        from rootfilespec.rntuple.envelope import REnvelopeLocator
+        from rootfilespec.rntuple.footer import FooterEnvelope
+        from rootfilespec.rntuple.RLocator import LargeLocator
 
         return REnvelopeLocator(
             self.fLenFooter,
