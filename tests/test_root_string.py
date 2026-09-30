@@ -5,6 +5,7 @@ import pytest
 
 from rootfilespec.bootstrap import BOOTSTRAP_CONTEXT, TString
 from rootfilespec.bootstrap.TFile import InitialReadLocator
+from rootfilespec.bootstrap.TKey import TypedTKey
 from rootfilespec.bootstrap.TStreamerInfo import TStreamerInfo
 from rootfilespec.container import StdVector
 from rootfilespec.dynamic import streamerinfo_to_classes
@@ -221,3 +222,14 @@ def test_string_records():
         assert (small.fLong, small.fPlain) == (b"abcdef", b"abcdef")
         big = reader.fetch(keylist[b"big"])
         assert (big.fLong, big.fPlain) == (b"x" * 300, b"x" * 300)
+
+
+def test_typed_key_string_record():
+    """A TypedTKey reads a string record too: the looked-up type is the
+    TString alias, not a class, and read_object reads both kinds alike"""
+    with open_path(DATA / "serialization" / "unframed-records.root") as reader:
+        key = reader.keylist()[b"tstring"]
+        buffer = reader.fetch.buffer(key)
+        typed, _ = TypedTKey.read(buffer)
+        assert typed.objtype == TString
+        assert typed.read_from(buffer) == b"hello"

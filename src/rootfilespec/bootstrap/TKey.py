@@ -139,13 +139,16 @@ class TKey(ROOTSerializable):
             buffer = decompress(buffer, self.header.fObjlen)
         else:
             buffer = buffer[: self.header.fObjlen]
-        if objtype is not None:
-            typename = objtype.__name__
-            obj, buffer = objtype.read(buffer)
-        else:
+        readtype: type[ObjType] | type[ROOTSerializable]
+        if objtype is None:
             typename = normalize(self.fClassName)
-            dyntype = buffer.file_context.type_by_name(typename)
-            obj, buffer = read_value(dyntype, buffer)
+            readtype = buffer.file_context.type_by_name(typename)
+        else:
+            typename = objtype.__name__
+            readtype = objtype
+        # A looked-up type may be an annotated builtin, such as TString (#68)
+        obj: ObjType | ROOTSerializable
+        obj, buffer = read_value(readtype, buffer)
         # Some types we have to handle trailing bytes
         if typename == "TKeyList":
             # TODO: understand this padding
