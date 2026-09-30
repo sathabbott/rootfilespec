@@ -14,9 +14,7 @@ DATA = Path(__file__).parent.parent / "reference" / "root-io-spec" / "data" / "r
 def _load(path: str | Path) -> RNTuple:
     with open_path(path) as reader:
         keylist = reader.keylist()
-        (name,) = [
-            n for n in keylist if keylist[n].fClassName.fString == b"ROOT::RNTuple"
-        ]
+        (name,) = [n for n in keylist if keylist[n].fClassName == b"ROOT::RNTuple"]
         return RNTuple.from_anchor(reader.fetch(keylist[name]), reader.fetch.buffer)
 
 
