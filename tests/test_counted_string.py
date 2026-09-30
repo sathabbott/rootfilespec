@@ -56,7 +56,7 @@ def test_rntuple_strings_are_bytes():
                 rntuple = RNTuple.from_anchor(reader.fetch(key), reader.fetch.buffer)
                 header = rntuple.headerEnvelope
                 assert type(header.fName) is bytes
-                assert header.fName == name.encode()
+                assert header.fName == name
                 assert type(header.fLibrary) is bytes
                 for field in rntuple.schemaDescription.fieldDescriptions:
                     for value in (
