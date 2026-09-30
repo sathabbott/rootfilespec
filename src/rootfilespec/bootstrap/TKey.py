@@ -14,7 +14,7 @@ from rootfilespec.serializable import (
     read_value,
     serializable,
 )
-from rootfilespec.structutil import Fmt, read_string
+from rootfilespec.structutil import Fmt, ROOTString
 
 
 @serializable
@@ -92,9 +92,9 @@ class TKey(ROOTSerializable):
             (fSeekKey, fSeekPdir), buffer = buffer.unpack(">ii")
         else:
             (fSeekKey, fSeekPdir), buffer = buffer.unpack(">qq")
-        fClassName, buffer = read_string(buffer, "TString")
-        fName, buffer = read_string(buffer, "TString")
-        fTitle, buffer = read_string(buffer, "TString")
+        fClassName, buffer = ROOTString("TString").read(buffer)
+        fName, buffer = ROOTString("TString").read(buffer)
+        fTitle, buffer = ROOTString("TString").read(buffer)
         if header.fVersion % 1000 not in (2, 4):
             msg = f"TKey.read_members: unexpected version {header.fVersion}"
             raise ValueError(msg)

@@ -32,82 +32,84 @@ class Fmt(MemberSerDe):
         return _FmtReader(fname, self.fmt, ftype)
 
 
-StringEncoding = Literal["RNTuple", "TString", "std::string", "charstar"]
+StringEncoding = Literal["RNTuple", "TString", "charstar"]
 """The on-disk string encodings (root-io-spec Conventions §5)
 
 - ``"RNTuple"``: a u32 little-endian length, then that many bytes.
 - ``"TString"``: the counted string, one length byte, or 255 then a u32
-  big-endian length (§5.1). A ``TString`` data member and a ``std::string``
-  element of a collection use it.
-- ``"std::string"``: a ``std::string`` data member, the counted string inside a
-  byte count and a version word (§5.3).
-- ``"charstar"``: a ``char*`` member (``kCharStar``), an i32 big-endian length,
-  then that many bytes, with no terminator and no 255 escape (§5.4). A length of
-  zero or less means no bytes follow, so a null pointer reads as ``b""``.
+  big-endian length (§5.1). ``TString`` and ``std::string`` use it.
+- ``"charstar"``: an i32 big-endian length, then that many bytes, with no
+  terminator and no 255 escape: a ``char*`` member (``kCharStar``, §5.4) and a
+  ``TStringLong`` (§5.1.1). A length of zero or less means no bytes follow, so a
+  null pointer reads as ``b""``.
 """
-
-_kByteCountMask = 0x40000000
-
-
-def read_string(
-    buffer: ReadBuffer, encoding: StringEncoding
-) -> tuple[bytes, ReadBuffer]:
-    """Read one string in the given encoding, as plain ``bytes``
-
-    The bytes are not decoded: ROOT strings are uninterpreted bytes, and a reader
-    should not assume an encoding (root-io-spec Conventions §5.1).
-    """
-    if encoding == "RNTuple":
-        (length,), buffer = buffer.unpack("<I")
-    elif encoding == "TString":
-        (length,), buffer = buffer.unpack(">B")
-        if length == 255:
-            (length,), buffer = buffer.unpack(">I")
-    elif encoding == "std::string":
-        (bytecount, _version), buffer = buffer.unpack(">IH")
-        if not bytecount & _kByteCountMask:
-            msg = f"std::string member without a byte count: {bytecount:#010x}"
-            raise ValueError(msg)
-        start = buffer.relpos
-        data, buffer = read_string(buffer, "TString")
-        if buffer.relpos - start != (bytecount & ~_kByteCountMask) - 2:
-            msg = f"std::string byte count {bytecount & ~_kByteCountMask} does not match its {len(data)}-byte string"
-            raise ValueError(msg)
-        return data, buffer
-    else:  # "charstar", checked by ROOTString
-        (length,), buffer = buffer.unpack(">i")
-        length = max(length, 0)
-    return buffer.consume(length)
 
 
 @dataclasses.dataclass
 class _ROOTStringReader:
     fname: str
-    encoding: StringEncoding
+    serde: "ROOTString"
 
     def __call__(
         self, members: Members, buffer: ReadBuffer
     ) -> tuple[Members, ReadBuffer]:
-        members[self.fname], buffer = read_string(buffer, self.encoding)
+        members[self.fname], buffer = self.serde.read(buffer)
         return members, buffer
 
 
 @dataclasses.dataclass
 class ROOTString(MemberSerDe):
-    """A string member, read as plain ``bytes``: ``Annotated[bytes, ROOTString(...)]``
+    """A string, read as plain ``bytes``: ``Annotated[bytes, ROOTString(...)]``
 
-    ``encoding`` is one of the on-disk encodings of :data:`StringEncoding`.
+    The bytes are not decoded: ROOT strings are uninterpreted bytes, and a reader
+    should not assume an encoding (root-io-spec Conventions §5.1). Nor do they
+    say which encoding they came from: that stays with whatever holds them (the
+    annotation, a key's class name, a streamed object's class tag).
     """
 
     encoding: StringEncoding
+    """How the length and the bytes are stored, one of :data:`StringEncoding`"""
+    framed: bool = False
+    """Whether a byte count and version word come first, as for a ``std::string``
+    data member (§5.3). Read with :class:`StreamHeader`, as other framed members are."""
 
     def __post_init__(self) -> None:
         if self.encoding not in get_args(StringEncoding):
             msg = f"Unknown string encoding {self.encoding!r}"
             raise ValueError(msg)
 
+    def read(self, buffer: ReadBuffer) -> tuple[bytes, ReadBuffer]:
+        """Read one string from the buffer"""
+        if self.framed:
+            return self._read_framed(buffer)
+        if self.encoding == "RNTuple":
+            (length,), buffer = buffer.unpack("<I")
+        elif self.encoding == "TString":
+            (length,), buffer = buffer.unpack(">B")
+            if length == 255:
+                (length,), buffer = buffer.unpack(">I")
+        else:  # "charstar", checked in __post_init__
+            (length,), buffer = buffer.unpack(">i")
+            length = max(length, 0)
+        return buffer.consume(length)
+
+    def _read_framed(self, buffer: ReadBuffer) -> tuple[bytes, ReadBuffer]:
+        # Imported here: rootfilespec.bootstrap imports this module (#119)
+        from rootfilespec.bootstrap.streamedobject import StreamHeader
+
+        header, buffer = StreamHeader.read(buffer)
+        if header.fVersion is None:
+            msg = f"Expected a byte count and version before the string, got {header}"
+            raise ValueError(msg)
+        start = buffer.relpos
+        data, buffer = ROOTString(self.encoding).read(buffer)
+        if buffer.relpos - start != header.fByteCount - 2:
+            msg = f"String byte count {header.fByteCount} does not match its {len(data)}-byte string"
+            raise ValueError(msg)
+        return data, buffer
+
     def build_reader(self, fname: str, ftype: type):  # noqa: ARG002
-        return _ROOTStringReader(fname, self.encoding)
+        return _ROOTStringReader(fname, self)
 
 
 @dataclasses.dataclass

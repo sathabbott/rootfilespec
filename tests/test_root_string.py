@@ -16,7 +16,7 @@ from rootfilespec.serializable import (
     ROOTSerializable,
     serializable,
 )
-from rootfilespec.structutil import ROOTString, StringEncoding, read_string
+from rootfilespec.structutil import ROOTString, StringEncoding
 
 DATA = Path(__file__).parent.parent / "reference" / "root-io-spec" / "data"
 
@@ -31,8 +31,10 @@ def _buffer(data: bytes, abspos: int = 0) -> ReadBuffer:
     )
 
 
-def _read(encoding: StringEncoding, data: bytes) -> tuple[bytes, bytes]:
-    value, rest = read_string(_buffer(data), encoding)
+def _read(
+    encoding: StringEncoding, data: bytes, framed: bool = False
+) -> tuple[bytes, bytes]:
+    value, rest = ROOTString(encoding, framed).read(_buffer(data))
     return value, bytes(rest.data)
 
 
@@ -91,18 +93,19 @@ def test_charstar_encoding(data: bytes, value: bytes):
     assert _read("charstar", data + b"rest") == (value, b"rest")
 
 
-def test_std_string_encoding():
-    """Conventions §5.3: a counted string inside a byte count and version word"""
-    assert _read("std::string", b"\x40\x00\x00\x06\x00\x0a\x03abcrest") == (
+def test_framed_string():
+    """Conventions §5.3: a std::string data member is a counted string inside a
+    byte count and version word"""
+    assert _read("TString", b"\x40\x00\x00\x06\x00\x0a\x03abcrest", framed=True) == (
         b"abc",
         b"rest",
     )
     # an empty std::string member is 7 bytes, not 1
-    assert _read("std::string", b"\x40\x00\x00\x03\x00\x0a\x00") == (b"", b"")
-    with pytest.raises(ValueError, match="without a byte count"):
-        _read("std::string", b"\x00\x00\x00\x06\x00\x0a\x03abc")
+    assert _read("TString", b"\x40\x00\x00\x03\x00\x0a\x00", framed=True) == (b"", b"")
+    with pytest.raises(ValueError, match="Expected a byte count and version"):
+        _read("TString", b"\x00\x00\x00\x06\x00\x0a\x03abc", framed=True)
     with pytest.raises(ValueError, match="does not match"):
-        _read("std::string", b"\x40\x00\x00\x07\x00\x0a\x03abcd")
+        _read("TString", b"\x40\x00\x00\x07\x00\x0a\x03abcd", framed=True)
 
 
 def test_rntuple_strings_are_bytes():
@@ -168,7 +171,7 @@ def test_generated_string_members():
     with open_path(path) as reader:
         assert reader.streamerinfo is not None
         code = streamerinfo_to_classes(reader.streamerinfo)
-    assert "fStr: Annotated[bytes, ROOTString('std::string')]" in code
+    assert "fStr: Annotated[bytes, ROOTString('TString', framed=True)]" in code
     assert "fWords: StdVector[Annotated[bytes, ROOTString('TString')]]" in code
 
     info = _streamerinfo(DATA / "serialization" / "element-types.root", b"ElementZoo")
@@ -185,7 +188,7 @@ class _CollectionStrings(ROOTSerializable):
 
 @serializable
 class _StdStringMember(ROOTSerializable):
-    fStr: Annotated[bytes, ROOTString("std::string")]
+    fStr: Annotated[bytes, ROOTString("TString", framed=True)]
 
 
 def test_fixture_string_bytes():
@@ -198,9 +201,9 @@ def test_fixture_string_bytes():
     assert member.fStr == b"abc"
 
     raw = (DATA / "serialization" / "element-types.root").read_bytes()
-    text, rest = read_string(_buffer(raw[352:], 352), "charstar")
+    text, rest = ROOTString("charstar").read(_buffer(raw[352:], 352))
     assert text == b"hi"
-    null, _ = read_string(rest, "charstar")
+    null, _ = ROOTString("charstar").read(rest)
     assert null == b""
 
 

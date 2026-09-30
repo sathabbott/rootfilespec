@@ -608,4 +608,7 @@ class TStreamerSTLstring(TStreamerSTL):
 
     def member_definition(self, parent: TStreamerInfo):  # noqa: ARG002
         # A std::string data member has a byte count and version word (Conventions §5.3)
-        return f"{self.member_name()}: Annotated[bytes, ROOTString('std::string')]", []
+        return (
+            f"{self.member_name()}: Annotated[bytes, ROOTString('TString', framed=True)]",
+            [],
+        )

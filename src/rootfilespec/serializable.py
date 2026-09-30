@@ -280,15 +280,15 @@ def _build_read(ftype: type[MemberType]) -> ReadObjMethod:
     return ReadObjMethod(membermethod)
 
 
-def read_value(ftype: Any, buffer: ReadBuffer) -> tuple[MemberType, ReadBuffer]:
+def read_value(
+    ftype: type[MemberType] | type["ROOTSerializable"], buffer: ReadBuffer
+) -> tuple[MemberType, ReadBuffer]:
     """Read one value of the given type from the buffer
 
     The type is a ROOTSerializable class, or an annotated builtin that a type
     lookup can also return: ``TString`` is ``Annotated[bytes, ROOTString("TString")]``,
     so a ``TString`` stored as an object of its own reads as ``bytes``.
     """
-    if isinstance(ftype, type) and issubclass(ftype, ROOTSerializable):
-        return ftype.read(buffer)
     return _build_read(ftype)(buffer)
 
 

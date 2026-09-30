@@ -111,9 +111,15 @@ class TNamed(TObject):
 where the `ROOTString` annotation tells the `@serializable` decorator how the
 bytes are encoded on disk. In this library, we will prefer to use the second
 approach when feasible. Every string type is read this way: `ROOTString` has one
-encoding per on-disk form (`"TString"`, `"std::string"`, `"charstar"` and
-`"RNTuple"`), and `bootstrap.TString` is the alias
+encoding per length format (`"TString"`, `"charstar"` and `"RNTuple"`), and
+`framed=True` when a byte count and version word come first, as for a
+`std::string` data member. `bootstrap.TString` is the alias
 `Annotated[bytes, ROOTString("TString")]` for hand-written classes.
+
+A design assumption follows: the bytes do not record which encoding they came
+from. That stays with whatever holds them: the member's annotation, a key's
+class name, or a streamed object's class tag. Writing a string back out
+therefore needs that context, not just the `bytes`.
 
 ## Data Fetching and Locators
 
