@@ -29,8 +29,8 @@ The entry point for deserialization is the `read` method, which calls
 `update_members` on all the subclasses in the inheritance tree to build up the
 dictionary of class members (`Members`). Some classes may override `read` to
 implement header parsing, or to handle layouts that are not simply in base class
-order. The `read_mupdate_membersembers` method is only responsible for reading
-the members of the class, not any base class members.
+order. The `update_members` method is only responsible for reading the members
+of the class, not any base class members.
 
 The `update_members` signature has a type alias in `serializable.py`:
 
