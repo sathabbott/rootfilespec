@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Annotated
 
 from rootfilespec.bootstrap.TDatime import TDatime, TDatime_to_datetime
@@ -59,11 +60,11 @@ class TDirectory_header_v622(ROOTSerializable):
         """True if the file is larger than 2GB"""
         return self.fVersion > 1000
 
-    def create_time(self):
+    def create_time(self) -> datetime | None:
         """Date and time when directory was created"""
         return TDatime_to_datetime(self.fDatimeC)
 
-    def modify_time(self):
+    def modify_time(self) -> datetime | None:
         """Date and time when directory was last modified"""
         return TDatime_to_datetime(self.fDatimeM)
 
@@ -167,7 +168,7 @@ TDirectoryFile = TDirectory
 
 
 @serializable
-class TKeyList(ROOTSerializable, Mapping[str, TKey]):
+class TKeyList(ROOTSerializable, Mapping[bytes, TKey]):
     """The TKeyList for a TDirectory contains all the (visible) TKeys
     For RNTuples, it will only contain the RNTuple Anchor TKey(s)
     Binary Spec: https://root.cern.ch/doc/master/keyslist.html
@@ -194,12 +195,13 @@ class TKeyList(ROOTSerializable, Mapping[str, TKey]):
     def __len__(self):
         return len(self.fKeys)
 
+    # Key names are uninterpreted bytes (root-io-spec Conventions §5.1), so the
+    # mapping is keyed by the bytes as stored, with no decoding.
     def __iter__(self):
-        return (key.fName.fString.decode("ascii") for key in self.fKeys)
+        return (key.fName.fString for key in self.fKeys)
 
-    def __getitem__(self, key: str):
-        bkey = key.encode("ascii")
-        matches = [k for k in self.fKeys if k.fName.fString == bkey]
+    def __getitem__(self, key: bytes):
+        matches = [k for k in self.fKeys if k.fName.fString == key]
         if not matches:
             raise KeyError(key)
         return max(matches, key=lambda k: k.header.fCycle)
