@@ -107,33 +107,33 @@ def _walk_branchlist(
             msg = f"Expected TBranch but got {type(branch).__name__}"
             raise TypeError(msg)
         branch = cast(TBranch, branch)
-        print(f"{'  ' * indent}Branch: {path + branch.fName.fString!r}")
+        print(f"{'  ' * indent}Branch: {path + branch.fName!r}")
         _walk_branchlist(
             branch.fBranches,
             fetch,
             notimplemented_callback,
-            path=path + branch.fName.fString + b".",
+            path=path + branch.fName + b".",
             indent=indent + 1,
         )
         if not hasattr(branch, "fClassName"):
             continue  # Simple data type, we trust we can deserialize
         branch = cast(TBranchObject, branch)
 
-        cpptype = branch.fClassName.fString
+        cpptype = branch.fClassName
         if hasattr(branch, "fParentName"):
             branch = cast(TBranchElement, branch)
-            if branch.fParentName.fString:
+            if branch.fParentName:
                 # The split branch is for a base class
                 # apparently the fTitle is the parent branch name + '.' + the type path?
                 # e.g. uproot-issue-798.root (xAOD3a3aFileMetaDataAuxInfo_v1)
-                cpptype = branch.fTitle.fString.rsplit(b".", 1)[-1]
+                cpptype = branch.fTitle.rsplit(b".", 1)[-1]
         typename = normalize(cpptype)
         print(f"{'  ' * indent}  Type: {typename}")
 
         if len(branch.fLeaves.objects):
             # This is a split branch
             leaves = (
-                b"Some" if isinstance(leaf, Ref) else leaf.fName.fString
+                b"Some" if isinstance(leaf, Ref) else leaf.fName
                 for leaf in branch.fLeaves.objects
             )
             print(f"{'  ' * indent}  Leaves: {b','.join(leaves)!r}")
@@ -182,7 +182,7 @@ def _walk(
         return
 
     for item in keylist.values():
-        itempath = path + item.fName.fString
+        itempath = path + item.fName
         try:
             obj = reader.fetch(item)
         except NotImplementedError as ex:

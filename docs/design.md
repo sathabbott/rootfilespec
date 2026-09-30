@@ -104,13 +104,16 @@ or by `bytes`:
 ```python
 @serializable
 class TNamed(TObject):
-    fName: Annotated[bytes, TString]
-    fTitle: Annotated[bytes, TString]
+    fName: Annotated[bytes, ROOTString("TString")]
+    fTitle: Annotated[bytes, ROOTString("TString")]
 ```
 
-where the `@serializable` decorator takes care of the conversion between `str`
-and `TString`. In this library, we will prefer to use the second approach when
-feasible.
+where the `ROOTString` annotation tells the `@serializable` decorator how the
+bytes are encoded on disk. In this library, we will prefer to use the second
+approach when feasible. Every string type is read this way: `ROOTString` has one
+encoding per on-disk form (`"TString"`, `"std::string"`, `"charstar"` and
+`"RNTuple"`), and `bootstrap.TString` is the alias
+`Annotated[bytes, ROOTString("TString")]` for hand-written classes.
 
 ## Data Fetching and Locators
 

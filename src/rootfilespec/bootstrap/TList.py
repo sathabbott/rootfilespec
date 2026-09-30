@@ -9,7 +9,7 @@ from rootfilespec.serializable import (
     ROOTSerializable,
     serializable,
 )
-from rootfilespec.structutil import Fmt
+from rootfilespec.structutil import Fmt, read_string
 
 
 @serializable
@@ -47,9 +47,9 @@ class TList(TSeqCollection):
                 raise ValueError(msg)
             # Each entry is followed by its option string (counted, usually empty)
             # TODO: version gates, see root-io-spec StreamerInfo.md §4 (issue #103)
-            option, buffer = TString.read(buffer)
+            option, buffer = read_string(buffer, "TString")
             items.append(item)
-            options.append(option.fString)
+            options.append(option)
         members["items"] = items
         members["options"] = options
         return members, buffer

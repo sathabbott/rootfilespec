@@ -11,9 +11,10 @@ from rootfilespec.serializable import (
     Members,
     ReadBuffer,
     ROOTSerializable,
+    read_value,
     serializable,
 )
-from rootfilespec.structutil import Fmt
+from rootfilespec.structutil import Fmt, read_string
 
 
 @serializable
@@ -91,9 +92,9 @@ class TKey(ROOTSerializable):
             (fSeekKey, fSeekPdir), buffer = buffer.unpack(">ii")
         else:
             (fSeekKey, fSeekPdir), buffer = buffer.unpack(">qq")
-        fClassName, buffer = TString.read(buffer)
-        fName, buffer = TString.read(buffer)
-        fTitle, buffer = TString.read(buffer)
+        fClassName, buffer = read_string(buffer, "TString")
+        fName, buffer = read_string(buffer, "TString")
+        fTitle, buffer = read_string(buffer, "TString")
         if header.fVersion % 1000 not in (2, 4):
             msg = f"TKey.read_members: unexpected version {header.fVersion}"
             raise ValueError(msg)
@@ -118,7 +119,7 @@ class TKey(ROOTSerializable):
         fetch_data: DataFetcher,
         objtype: type[ObjType] | None = None,
     ) -> ObjType | ROOTSerializable:
-        if self.fClassName.fString == b"RBlob":
+        if self.fClassName == b"RBlob":
             # An RBlob key's fObjLen is decorative, and one blob can hold several
             # pages, each with a checksum fObjLen does not count (root-io-spec
             # RNTuple NOTES 1). Reading it as a key payload silently truncates it.
@@ -142,9 +143,9 @@ class TKey(ROOTSerializable):
             typename = objtype.__name__
             obj, buffer = objtype.read(buffer)
         else:
-            typename = normalize(self.fClassName.fString)
+            typename = normalize(self.fClassName)
             dyntype = buffer.file_context.type_by_name(typename)
-            obj, buffer = dyntype.read(buffer)  # type: ignore[assignment]
+            obj, buffer = read_value(dyntype, buffer)
         # Some types we have to handle trailing bytes
         if typename == "TKeyList":
             # TODO: understand this padding
@@ -194,7 +195,7 @@ class TypedTKey(Generic[ObjType], ROOTSerializable):
     @classmethod
     def read(cls, buffer: ReadBuffer):
         key, buffer = TKey.read(buffer)
-        typename = normalize(key.fClassName.fString)
+        typename = normalize(key.fClassName)
         objtype = buffer.file_context.type_by_name(typename)
         return cls(key=key, objtype=objtype), buffer  # type: ignore[arg-type]
 

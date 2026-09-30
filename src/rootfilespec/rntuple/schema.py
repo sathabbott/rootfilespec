@@ -3,9 +3,9 @@ from typing import Annotated
 
 from rootfilespec.rntuple.RFrame import RecordFrame
 from rootfilespec.serializable import serializable
-from rootfilespec.structutil import CountedString, Fmt, OptionalField
+from rootfilespec.structutil import Fmt, OptionalField, ROOTString
 
-RNTupleString = Annotated[bytes, CountedString("<I")]
+RNTupleString = Annotated[bytes, ROOTString("RNTuple")]
 """An RNTuple string: a 32-bit little-endian length, then that many bytes, as plain bytes
 
 The spec's strings are UTF-8, but they are kept as the bytes on disk (see #68).

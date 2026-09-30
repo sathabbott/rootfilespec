@@ -1,6 +1,6 @@
 import dataclasses
 import operator
-from typing import get_args
+from typing import Literal, get_args
 
 from rootfilespec.serializable import Members, MemberSerDe, ReadBuffer, ROOTSerializable
 
@@ -32,32 +32,82 @@ class Fmt(MemberSerDe):
         return _FmtReader(fname, self.fmt, ftype)
 
 
+StringEncoding = Literal["RNTuple", "TString", "std::string", "charstar"]
+"""The on-disk string encodings (root-io-spec Conventions §5)
+
+- ``"RNTuple"``: a u32 little-endian length, then that many bytes.
+- ``"TString"``: the counted string, one length byte, or 255 then a u32
+  big-endian length (§5.1). A ``TString`` data member and a ``std::string``
+  element of a collection use it.
+- ``"std::string"``: a ``std::string`` data member, the counted string inside a
+  byte count and a version word (§5.3).
+- ``"charstar"``: a ``char*`` member (``kCharStar``), an i32 big-endian length,
+  then that many bytes, with no terminator and no 255 escape (§5.4). A length of
+  zero or less means no bytes follow, so a null pointer reads as ``b""``.
+"""
+
+_kByteCountMask = 0x40000000
+
+
+def read_string(
+    buffer: ReadBuffer, encoding: StringEncoding
+) -> tuple[bytes, ReadBuffer]:
+    """Read one string in the given encoding, as plain ``bytes``
+
+    The bytes are not decoded: ROOT strings are uninterpreted bytes, and a reader
+    should not assume an encoding (root-io-spec Conventions §5.1).
+    """
+    if encoding == "RNTuple":
+        (length,), buffer = buffer.unpack("<I")
+    elif encoding == "TString":
+        (length,), buffer = buffer.unpack(">B")
+        if length == 255:
+            (length,), buffer = buffer.unpack(">I")
+    elif encoding == "std::string":
+        (bytecount, _version), buffer = buffer.unpack(">IH")
+        if not bytecount & _kByteCountMask:
+            msg = f"std::string member without a byte count: {bytecount:#010x}"
+            raise ValueError(msg)
+        start = buffer.relpos
+        data, buffer = read_string(buffer, "TString")
+        if buffer.relpos - start != (bytecount & ~_kByteCountMask) - 2:
+            msg = f"std::string byte count {bytecount & ~_kByteCountMask} does not match its {len(data)}-byte string"
+            raise ValueError(msg)
+        return data, buffer
+    else:  # "charstar", checked by ROOTString
+        (length,), buffer = buffer.unpack(">i")
+        length = max(length, 0)
+    return buffer.consume(length)
+
+
 @dataclasses.dataclass
-class _CountedStringReader:
+class _ROOTStringReader:
     fname: str
-    length_fmt: str
+    encoding: StringEncoding
 
     def __call__(
         self, members: Members, buffer: ReadBuffer
     ) -> tuple[Members, ReadBuffer]:
-        (length,), buffer = buffer.unpack(self.length_fmt)
-        members[self.fname], buffer = buffer.consume(length)
+        members[self.fname], buffer = read_string(buffer, self.encoding)
         return members, buffer
 
 
 @dataclasses.dataclass
-class CountedString(MemberSerDe):
-    """A string stored as its length, then that many bytes, read as plain ``bytes``
+class ROOTString(MemberSerDe):
+    """A string member, read as plain ``bytes``: ``Annotated[bytes, ROOTString(...)]``
 
-    ``length_fmt`` is the struct format of the length, e.g. ``"<I"`` for an
-    RNTuple string (a 32-bit little-endian unsigned length). The bytes are not
-    decoded: a reader should not assume an encoding the format does not promise.
+    ``encoding`` is one of the on-disk encodings of :data:`StringEncoding`.
     """
 
-    length_fmt: str
+    encoding: StringEncoding
+
+    def __post_init__(self) -> None:
+        if self.encoding not in get_args(StringEncoding):
+            msg = f"Unknown string encoding {self.encoding!r}"
+            raise ValueError(msg)
 
     def build_reader(self, fname: str, ftype: type):  # noqa: ARG002
-        return _CountedStringReader(fname, self.length_fmt)
+        return _ROOTStringReader(fname, self.encoding)
 
 
 @dataclasses.dataclass

@@ -282,8 +282,8 @@ def test_case_records(case: str, trace: Trace):
     for offset, key in found.items():
         record = records[offset]
         assert key.header.fNbytes == record["nbytes"]
-        assert key.fClassName.fString.decode() == record["class"]
+        assert key.fClassName.decode() == record["class"]
         if "name" in record:
-            assert key.fName.fString.decode() == record["name"]
+            assert key.fName.decode() == record["name"]
             assert key.header.fCycle == record["cycle"]
             assert key.fSeekPdir == record["seek_pdir"]
