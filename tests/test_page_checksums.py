@@ -22,7 +22,7 @@ def _page_descriptions(path: Path) -> list[RPageDescription]:
         keylist = reader.keylist()
         for name in keylist:
             key = keylist[name]
-            if key.fClassName.fString != b"ROOT::RNTuple":
+            if key.fClassName != b"ROOT::RNTuple":
                 continue
             rntuple = RNTuple.from_anchor(reader.fetch(key), reader.fetch.buffer)
             for pagelist in rntuple.pagelistEnvelopes:
