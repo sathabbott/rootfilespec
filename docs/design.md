@@ -116,10 +116,12 @@ encoding per length format (`"TString"`, `"charstar"` and `"RNTuple"`), and
 `std::string` data member. `bootstrap.TString` is the alias
 `Annotated[bytes, ROOTString("TString")]` for hand-written classes.
 
-A design assumption follows: the bytes do not record which encoding they came
-from. That stays with whatever holds them: the member's annotation, a key's
-class name, or a streamed object's class tag. Writing a string back out
-therefore needs that context, not just the `bytes`.
+A design assumption follows: the bytes do not record which ROOT type or encoding
+they came from. A member keeps it in its annotation, a container element in the
+container's type, and a record of its own in its key's `fClassName`, so writing
+those back needs that context, not just the `bytes`. A string read through a
+pointer keeps it nowhere: the stream's class tag is read to find the type and
+then dropped, so such a value cannot be written back as read (#135).
 
 ## Data Fetching and Locators
 

@@ -63,8 +63,8 @@ class ROOTString(MemberSerDe):
 
     The bytes are not decoded: ROOT strings are uninterpreted bytes, and a reader
     should not assume an encoding (root-io-spec Conventions §5.1). Nor do they
-    say which encoding they came from: that stays with whatever holds them (the
-    annotation, a key's class name, a streamed object's class tag).
+    say which encoding they came from: the annotation, or a key's class name,
+    holds that. A string read through a pointer loses it (``docs/design.md``).
     """
 
     encoding: StringEncoding
