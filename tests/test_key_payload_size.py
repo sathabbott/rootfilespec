@@ -40,7 +40,9 @@ def test_short_read_raises():
     compressed one: "Unknown compression algorithm"."""
     data, key, context = _first_key("compress-none-fallback.root", compressed=False)
     stored = key.header.fNbytes - key.header.fKeylen
-    with pytest.raises(ValueError, match=f"expected {stored} payload bytes, got {stored - 3}"):
+    with pytest.raises(
+        ValueError, match=f"expected {stored} payload bytes, got {stored - 3}"
+    ):
         key.read_object(_fetch(data, context, -3))
 
 
