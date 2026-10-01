@@ -1,6 +1,8 @@
 from collections.abc import Callable
 from typing import Annotated, cast
 
+import xxhash  # type: ignore[import-not-found]
+
 from rootfilespec.bootstrap.compression import RCompressionSettings
 from rootfilespec.rntuple.RFrame import Item, ListFrame
 from rootfilespec.rntuple.RLocator import RLocator
@@ -12,6 +14,9 @@ from rootfilespec.serializable import (
     serializable,
 )
 from rootfilespec.structutil import Fmt, OptionalField
+
+PAGE_CHECKSUM_SIZE = 8
+"""A page checksum is an XXH3-64, stored little-endian right after the page"""
 
 
 @serializable
@@ -30,7 +35,11 @@ class RPageDescription(ROOTSerializable):
     """
 
     fNElements: Annotated[int, Fmt("<i")]
-    """The number of elements in the page."""
+    """The number of elements in the page, as stored.
+
+    Its sign is the checksum flag: negative means an XXH3-64 checksum follows the
+    page. Kept as stored so that the bytes can be reproduced; use ``n_elements``
+    and ``has_checksum``."""
     locator: RLocator
     """The locator for the page."""
 
@@ -43,22 +52,48 @@ class RPageDescription(ROOTSerializable):
 
     @property
     def size(self) -> int:
-        """The (compressed) size of the page data."""
-        return self.locator.size
+        """The number of bytes to fetch: the page as stored, then its checksum if it has one.
+
+        The spec's page size, which excludes the checksum, is ``locator.size``."""
+        return self.locator.size + (PAGE_CHECKSUM_SIZE if self.has_checksum else 0)
+
+    @property
+    def n_elements(self) -> int:
+        """The number of elements in the page."""
+        return abs(self.fNElements)
+
+    @property
+    def has_checksum(self) -> bool:
+        """Whether an XXH3-64 checksum is stored right after the page."""
+        return self.fNElements < 0
 
     def read_from(self, buffer: ReadBuffer) -> RPage:
-        """Read the page from the given buffer.
+        """Read the page from the given buffer, and verify its checksum if it has one.
 
-        Pages are wrapped in compression blocks (like envelopes).
+        The buffer holds ``size`` bytes. The checksum covers the page as stored
+        (sealed, possibly compressed), wherever those bytes were fetched from.
+        Pages are wrapped in compression blocks (like envelopes); nothing is
+        decompressed here.
         """
-        #### Read the page from the buffer
-        page, buffer = RPage.read(buffer)
-
-        if buffer:
-            msg = "RPageDescription.read_from: buffer not empty after reading page."
+        if len(buffer) != self.size:
+            msg = f"RPageDescription.read_from: expected {self.size} bytes, got {len(buffer)}"
             raise ValueError(msg)
 
-        return page
+        #### Read the page from the buffer
+        if not self.has_checksum:
+            page, _ = RPage.read(buffer)
+            return page
+
+        data, buffer = buffer.consume(self.locator.size)
+        (checksum,), buffer = buffer.unpack("<Q")
+        computed = xxhash.xxh3_64_intdigest(data)
+        if computed != checksum:
+            msg = (
+                f"Page checksum mismatch at {self.locator}: "
+                f"stored {checksum:#018x}, computed {computed:#018x}"
+            )
+            raise ValueError(msg)
+        return RPage(data, checksum)
 
     def get_page(
         self, fetch_data: Callable[[Locator[ROOTSerializable]], ReadBuffer]
