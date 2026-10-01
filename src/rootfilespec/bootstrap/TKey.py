@@ -130,11 +130,22 @@ class TKey(ROOTSerializable):
         buffer = fetch_data(self.fSeekKey, self.header.fNbytes)
         # TODO: should we compare the key in the buffer with ourself?
         buffer = buffer[self.header.fKeylen :]
+        # The payload is fNbytes - fKeyLen bytes. Decide from the key, not from
+        # how many bytes were fetched: a short fetch (a truncated file) is an
+        # error, and a longer one (a caller's cache) holds more than the payload
+        stored = self.header.fNbytes - self.header.fKeylen
+        if len(buffer) < stored:
+            msg = (
+                f"TKey at {self.fSeekKey}: expected {stored} payload bytes, "
+                f"got {len(buffer)}"
+            )
+            raise ValueError(msg)
+        buffer = buffer[:stored]
 
         compressed = None
         # Compressed iff fObjLen > fNbytes - fKeyLen (root-io-spec Compression §1);
         # a raw payload longer than fObjLen has slack, which is not part of it
-        if self.header.fObjlen > len(buffer):
+        if self.header.is_compressed():
             buffer = decompress(buffer, self.header.fObjlen)
         else:
             buffer = buffer[: self.header.fObjlen]
