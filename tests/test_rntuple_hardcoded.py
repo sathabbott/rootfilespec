@@ -338,83 +338,61 @@ def test_read_contributors():
             extraTypeInformations=[],
         )
 
-        extended_page_descriptions = rntuple.get_extended_page_descriptions()
+        clusters = rntuple.clusters()
         assert [
-            [[column.pages for column in cluster] for cluster in envelope]
-            for envelope in extended_page_descriptions
-        ] == [  # PagelistEnvelopes
-            [  # Clusters (columnlists)
-                [  # Columns (pagelists)
-                    [  # Pages (page descriptions)
-                        InterpretablePage(
-                            pageDescription=RPageDescription(
-                                fNElements=-22,
-                                locator=StandardLocator(size=176, offset=620),
-                            ),
-                            uncompressedSize=176,
-                            columnType=ColumnType.kIndex64,
-                            clusterID=0,
-                            columnID=0,
-                            fieldID=0,
-                            fieldDescription=rntuple.schemaDescription.fieldDescriptions[
-                                0
-                            ],
-                            fieldPath=b"firstName",
-                        )
-                    ],
-                    [
-                        InterpretablePage(
-                            pageDescription=RPageDescription(
-                                fNElements=-178,
-                                locator=StandardLocator(size=178, offset=804),
-                            ),
-                            uncompressedSize=178,
-                            columnType=ColumnType.kChar,
-                            clusterID=0,
-                            columnID=1,
-                            fieldID=0,
-                            fieldDescription=rntuple.schemaDescription.fieldDescriptions[
-                                0
-                            ],
-                            fieldPath=b"firstName",
-                        )
-                    ],
-                    [
-                        InterpretablePage(
-                            pageDescription=RPageDescription(
-                                fNElements=-22,
-                                locator=StandardLocator(size=176, offset=990),
-                            ),
-                            uncompressedSize=176,
-                            columnType=ColumnType.kIndex64,
-                            clusterID=0,
-                            columnID=2,
-                            fieldID=1,
-                            fieldDescription=rntuple.schemaDescription.fieldDescriptions[
-                                1
-                            ],
-                            fieldPath=b"lastName",
-                        )
-                    ],
-                    [
-                        InterpretablePage(
-                            pageDescription=RPageDescription(
-                                fNElements=-193,
-                                locator=StandardLocator(size=193, offset=1174),
-                            ),
-                            uncompressedSize=193,
-                            columnType=ColumnType.kChar,
-                            clusterID=0,
-                            columnID=3,
-                            fieldID=1,
-                            fieldDescription=rntuple.schemaDescription.fieldDescriptions[
-                                1
-                            ],
-                            fieldPath=b"lastName",
-                        )
-                    ],
-                ]
+            [column.pages for column in cluster.columns] for cluster in clusters
+        ] == [  # Clusters (columnlists)
+            [  # Columns (pagelists)
+                [  # Pages (page descriptions)
+                    InterpretablePage(
+                        pageDescription=RPageDescription(
+                            fNElements=-22,
+                            locator=StandardLocator(size=176, offset=620),
+                        ),
+                        firstElementIndex=0,
+                        uncompressedSize=176,
+                    )
+                ],
+                [
+                    InterpretablePage(
+                        pageDescription=RPageDescription(
+                            fNElements=-178,
+                            locator=StandardLocator(size=178, offset=804),
+                        ),
+                        firstElementIndex=0,
+                        uncompressedSize=178,
+                    )
+                ],
+                [
+                    InterpretablePage(
+                        pageDescription=RPageDescription(
+                            fNElements=-22,
+                            locator=StandardLocator(size=176, offset=990),
+                        ),
+                        firstElementIndex=0,
+                        uncompressedSize=176,
+                    )
+                ],
+                [
+                    InterpretablePage(
+                        pageDescription=RPageDescription(
+                            fNElements=-193,
+                            locator=StandardLocator(size=193, offset=1174),
+                        ),
+                        firstElementIndex=0,
+                        uncompressedSize=193,
+                    )
+                ],
             ]
+        ]
+        assert [
+            (column.columnDescription.fColumnType, column.fieldPath)
+            for column in clusters[0].columns
+        ] == [
+            (ColumnType.kIndex64, b"firstName"),
+            (ColumnType.kChar, b"firstName"),
+            (ColumnType.kIndex64, b"lastName"),
+            (ColumnType.kChar, b"lastName"),
         ]
 
 
@@ -617,33 +595,27 @@ def test_read_multiple_rntuples():
             extraTypeInformations=[],
         )
 
-        extended_page_descriptions_a = rntuple_a.get_extended_page_descriptions()
+        clusters_a = rntuple_a.clusters()
         assert [
-            [[column.pages for column in cluster] for cluster in envelope]
-            for envelope in extended_page_descriptions_a
-        ] == [  # PagelistEnvelopes
-            [  # Clusters (columnlists)
-                [  # Columns (pagelists)
-                    [  # Pages (page descriptions)
-                        InterpretablePage(
-                            pageDescription=RPageDescription(
-                                fNElements=-100,
-                                locator=StandardLocator(size=138, offset=409),
-                            ),
-                            uncompressedSize=400,
-                            columnType=ColumnType.kSplitReal32,
-                            clusterID=0,
-                            columnID=0,
-                            fieldID=0,
-                            fieldDescription=rntuple_a.schemaDescription.fieldDescriptions[
-                                0
-                            ],
-                            fieldPath=b"f",
-                        )
-                    ]
+            [column.pages for column in cluster.columns] for cluster in clusters_a
+        ] == [  # Clusters (columnlists)
+            [  # Columns (pagelists)
+                [  # Pages (page descriptions)
+                    InterpretablePage(
+                        pageDescription=RPageDescription(
+                            fNElements=-100,
+                            locator=StandardLocator(size=138, offset=409),
+                        ),
+                        firstElementIndex=0,
+                        uncompressedSize=400,
+                    )
                 ]
             ]
         ]
+        assert [
+            (column.columnDescription.fColumnType, column.fieldPath)
+            for column in clusters_a[0].columns
+        ] == [(ColumnType.kSplitReal32, b"f")]
 
         anchor_b = keylist[b"B"].read_object(fetch_data, ROOT3a3aRNTuple)
         assert anchor_b == ROOT3a3aRNTuple(
@@ -820,30 +792,24 @@ def test_read_multiple_rntuples():
             extraTypeInformations=[],
         )
 
-        extended_page_descriptions_b = rntuple_b.get_extended_page_descriptions()
+        clusters_b = rntuple_b.clusters()
         assert [
-            [[column.pages for column in cluster] for cluster in envelope]
-            for envelope in extended_page_descriptions_b
-        ] == [  # PagelistEnvelopes
-            [  # Clusters (columnlists)
-                [  # Columns (pagelists)
-                    [  # Pages (page descriptions)
-                        InterpretablePage(
-                            pageDescription=RPageDescription(
-                                fNElements=-100,
-                                locator=StandardLocator(size=164, offset=1695),
-                            ),
-                            uncompressedSize=400,
-                            columnType=ColumnType.kSplitInt32,
-                            clusterID=0,
-                            columnID=0,
-                            fieldID=0,
-                            fieldDescription=rntuple_b.schemaDescription.fieldDescriptions[
-                                0
-                            ],
-                            fieldPath=b"g",
-                        )
-                    ]
+            [column.pages for column in cluster.columns] for cluster in clusters_b
+        ] == [  # Clusters (columnlists)
+            [  # Columns (pagelists)
+                [  # Pages (page descriptions)
+                    InterpretablePage(
+                        pageDescription=RPageDescription(
+                            fNElements=-100,
+                            locator=StandardLocator(size=164, offset=1695),
+                        ),
+                        firstElementIndex=0,
+                        uncompressedSize=400,
+                    )
                 ]
             ]
         ]
+        assert [
+            (column.columnDescription.fColumnType, column.fieldPath)
+            for column in clusters_b[0].columns
+        ] == [(ColumnType.kSplitInt32, b"g")]
