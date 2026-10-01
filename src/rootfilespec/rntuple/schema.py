@@ -1,10 +1,15 @@
 from enum import IntEnum
 from typing import Annotated
 
-from rootfilespec.bootstrap.strings import RString
 from rootfilespec.rntuple.RFrame import RecordFrame
 from rootfilespec.serializable import serializable
-from rootfilespec.structutil import Fmt, OptionalField
+from rootfilespec.structutil import Fmt, OptionalField, ROOTString
+
+RNTupleString = Annotated[bytes, ROOTString("RNTuple")]
+"""An RNTuple string: a 32-bit little-endian length, then that many bytes, as plain bytes
+
+The spec's strings are UTF-8, but they are kept as the bytes on disk (see #68).
+"""
 
 
 class ColumnType(IntEnum):
@@ -132,13 +137,13 @@ class FieldDescription(RecordFrame):
         - 0x04:  Has ROOT type checksum as reported by TClass
         - 0x08:  The field is a collection that was stored using a SoA layout
                  (no effect on the on-disk representation; adds no optional field)"""
-    fFieldName: RString
+    fFieldName: RNTupleString
     """The name of the field."""
-    fTypeName: RString
+    fTypeName: RNTupleString
     """The name of the field type."""
-    fTypeAlias: RString
+    fTypeAlias: RNTupleString
     """The alias of the field type, if any."""
-    fFieldDescription: RString
+    fFieldDescription: RNTupleString
     """The description of the field, if any."""
     fArraySize: Annotated[int | None, OptionalField("<Q", "fFlags", "&", 0x01)]
     """The size of the array for the field. Present only if flag 0x01 is set (repetitive field)."""
@@ -221,5 +226,5 @@ class ExtraTypeInformation(RecordFrame):
     The format of the content is a ROOT streamed TList of TStreamerInfo objects."""
     fTypeVersion: Annotated[int, Fmt("<I")]
     """The version of the type for which this extra type information is provided."""
-    fTypeName: RString
+    fTypeName: RNTupleString
     """The name of the type for which this extra type information is provided."""

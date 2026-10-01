@@ -8,6 +8,7 @@ These types generally hold big-endian encoded primitive types.
 """
 
 import dataclasses
+from typing import Any
 
 from rootfilespec.bootstrap.array import (
     TArray,
@@ -28,7 +29,7 @@ from rootfilespec.bootstrap.compression import RCompressed, RCompressionHeader
 from rootfilespec.bootstrap.double32 import Double32Serde
 from rootfilespec.bootstrap.RAnchor import ROOT3a3aRNTuple
 from rootfilespec.bootstrap.streamedobject import Ref, StreamedObject
-from rootfilespec.bootstrap.strings import RString, STLString, TString, string
+from rootfilespec.bootstrap.strings import TString, TStringLong, string
 from rootfilespec.bootstrap.TBasket import TBasket
 from rootfilespec.bootstrap.TDatime import TDatime
 from rootfilespec.bootstrap.TDirectory import TDirectory, TDirectoryFile, TKeyList
@@ -68,13 +69,15 @@ class _BootstrapContext(FileContext):
         return cls
 
 
-BOOTSTRAP_CONTEXT = _BootstrapContext(
-    types={
-        name: cls
-        for name, cls in globals().items()
-        if isinstance(cls, type) and issubclass(cls, ROOTSerializable)
-    }
-)
+_types: dict[str, Any] = {
+    name: cls
+    for name, cls in globals().items()
+    if isinstance(cls, type) and issubclass(cls, ROOTSerializable)
+}
+# A string stored as an object of its own (a key, or through a pointer) is looked
+# up by its class name, and reads as bytes (#68)
+_types |= {"TString": TString, "TStringLong": TStringLong, "string": string}
+BOOTSTRAP_CONTEXT = _BootstrapContext(types=_types)
 
 __all__ = [
     "BOOTSTRAP_CONTEXT",
@@ -83,10 +86,8 @@ __all__ = [
     "RCompressionHeader",
     "ROOT3a3aRNTuple",
     "ROOTFile",
-    "RString",
     "Ref",
     "RooLinkedList",
-    "STLString",
     "StreamedObject",
     "TArray",
     "TArrayC",
@@ -124,6 +125,7 @@ __all__ = [
     "TStreamerSTLstring",
     "TStreamerString",
     "TString",
+    "TStringLong",
     "TVirtualIndex",
     "Uninterpreted",
     "string",

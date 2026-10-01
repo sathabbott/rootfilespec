@@ -23,7 +23,7 @@ def streamerinfo_to_classes(streamerinfo: bootstrap.TList) -> str:
     for item in streamerinfo.items:
         if not isinstance(item, TStreamerInfo):
             continue
-        clsname = normalize(item.fName.fString)
+        clsname = normalize(item.fName)
         if clsname in declared:
             lines.append(f"# Class {clsname} already declared, skipping")
             lines.append(f"# Definition: {item}\n")

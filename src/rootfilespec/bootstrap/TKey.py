@@ -11,9 +11,10 @@ from rootfilespec.serializable import (
     Members,
     ReadBuffer,
     ROOTSerializable,
+    read_value,
     serializable,
 )
-from rootfilespec.structutil import Fmt
+from rootfilespec.structutil import Fmt, ROOTString
 
 
 @serializable
@@ -91,9 +92,9 @@ class TKey(ROOTSerializable):
             (fSeekKey, fSeekPdir), buffer = buffer.unpack(">ii")
         else:
             (fSeekKey, fSeekPdir), buffer = buffer.unpack(">qq")
-        fClassName, buffer = TString.read(buffer)
-        fName, buffer = TString.read(buffer)
-        fTitle, buffer = TString.read(buffer)
+        fClassName, buffer = ROOTString("TString").read(buffer)
+        fName, buffer = ROOTString("TString").read(buffer)
+        fTitle, buffer = ROOTString("TString").read(buffer)
         if header.fVersion % 1000 not in (2, 4):
             msg = f"TKey.read_members: unexpected version {header.fVersion}"
             raise ValueError(msg)
@@ -118,7 +119,7 @@ class TKey(ROOTSerializable):
         fetch_data: DataFetcher,
         objtype: type[ObjType] | None = None,
     ) -> ObjType | ROOTSerializable:
-        if self.fClassName.fString == b"RBlob":
+        if self.fClassName == b"RBlob":
             # An RBlob key's fObjLen is decorative, and one blob can hold several
             # pages, each with a checksum fObjLen does not count (root-io-spec
             # RNTuple NOTES 1). Reading it as a key payload silently truncates it.
@@ -138,13 +139,16 @@ class TKey(ROOTSerializable):
             buffer = decompress(buffer, self.header.fObjlen)
         else:
             buffer = buffer[: self.header.fObjlen]
-        if objtype is not None:
-            typename = objtype.__name__
-            obj, buffer = objtype.read(buffer)
+        readtype: type[ObjType] | type[ROOTSerializable]
+        if objtype is None:
+            typename = normalize(self.fClassName)
+            readtype = buffer.file_context.type_by_name(typename)
         else:
-            typename = normalize(self.fClassName.fString)
-            dyntype = buffer.file_context.type_by_name(typename)
-            obj, buffer = dyntype.read(buffer)  # type: ignore[assignment]
+            typename = objtype.__name__
+            readtype = objtype
+        # A looked-up type may be an annotated builtin, such as TString (#68)
+        obj: ObjType | ROOTSerializable
+        obj, buffer = read_value(readtype, buffer)
         # Some types we have to handle trailing bytes
         if typename == "TKeyList":
             # TODO: understand this padding
@@ -194,7 +198,7 @@ class TypedTKey(Generic[ObjType], ROOTSerializable):
     @classmethod
     def read(cls, buffer: ReadBuffer):
         key, buffer = TKey.read(buffer)
-        typename = normalize(key.fClassName.fString)
+        typename = normalize(key.fClassName)
         objtype = buffer.file_context.type_by_name(typename)
         return cls(key=key, objtype=objtype), buffer  # type: ignore[arg-type]
 

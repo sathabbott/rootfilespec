@@ -198,10 +198,10 @@ class TKeyList(ROOTSerializable, Mapping[bytes, TKey]):
     # Key names are uninterpreted bytes (root-io-spec Conventions §5.1), so the
     # mapping is keyed by the bytes as stored, with no decoding.
     def __iter__(self):
-        return (key.fName.fString for key in self.fKeys)
+        return (key.fName for key in self.fKeys)
 
     def __getitem__(self, key: bytes):
-        matches = [k for k in self.fKeys if k.fName.fString == key]
+        matches = [k for k in self.fKeys if k.fName == key]
         if not matches:
             raise KeyError(key)
         return max(matches, key=lambda k: k.header.fCycle)

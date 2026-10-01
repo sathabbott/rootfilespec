@@ -29,8 +29,8 @@ The entry point for deserialization is the `read` method, which calls
 `update_members` on all the subclasses in the inheritance tree to build up the
 dictionary of class members (`Members`). Some classes may override `read` to
 implement header parsing, or to handle layouts that are not simply in base class
-order. The `read_mupdate_membersembers` method is only responsible for reading
-the members of the class, not any base class members.
+order. The `update_members` method is only responsible for reading the members
+of the class, not any base class members.
 
 The `update_members` signature has a type alias in `serializable.py`:
 
@@ -104,13 +104,24 @@ or by `bytes`:
 ```python
 @serializable
 class TNamed(TObject):
-    fName: Annotated[bytes, TString]
-    fTitle: Annotated[bytes, TString]
+    fName: Annotated[bytes, ROOTString("TString")]
+    fTitle: Annotated[bytes, ROOTString("TString")]
 ```
 
-where the `@serializable` decorator takes care of the conversion between `str`
-and `TString`. In this library, we will prefer to use the second approach when
-feasible.
+where the `ROOTString` annotation tells the `@serializable` decorator how the
+bytes are encoded on disk. In this library, we will prefer to use the second
+approach when feasible. Every string type is read this way: `ROOTString` has one
+encoding per length format (`"TString"`, `"charstar"` and `"RNTuple"`), and
+`framed=True` when a byte count and version word come first, as for a
+`std::string` data member. `bootstrap.TString` is the alias
+`Annotated[bytes, ROOTString("TString")]` for hand-written classes.
+
+A design assumption follows: the bytes do not record which ROOT type or encoding
+they came from. A member keeps it in its annotation, a container element in the
+container's type, and a record of its own in its key's `fClassName`, so writing
+those back needs that context, not just the `bytes`. A string read through a
+pointer keeps it nowhere: the stream's class tag is read to find the type and
+then dropped, so such a value cannot be written back as read (#135).
 
 ## Data Fetching and Locators
 

@@ -3,7 +3,6 @@ import struct
 import pytest
 
 from rootfilespec.bootstrap import BOOTSTRAP_CONTEXT
-from rootfilespec.bootstrap.strings import TString
 from rootfilespec.bootstrap.TDirectory import TKeyList
 from rootfilespec.bootstrap.TKey import TKey, TKey_header
 from rootfilespec.serializable import BufferContext, ReadBuffer
@@ -45,8 +44,9 @@ def test_raw_payload_longer_than_objlen():
     """
     key, record = _key(b"TString", b"s", b"\x03abc\x00\x00", objlen=4)
     assert not key.header.is_compressed()
-    obj = key.read_object(lambda _seek, _size: _buffer(record, 100), TString)
-    assert obj == TString(b"abc")
+    # A TString stored as an object of its own reads as bytes (#68)
+    obj = key.read_object(lambda _seek, _size: _buffer(record, 100))
+    assert obj == b"abc"
 
 
 def test_compressed_is_objlen_larger_than_payload():

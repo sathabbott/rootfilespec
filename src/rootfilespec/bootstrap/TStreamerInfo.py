@@ -27,10 +27,10 @@ class TStreamerInfo(TNamed):
 
     def class_name(self) -> str:
         """Get the class name of this streamer info."""
-        return normalize(self.fName.fString)
+        return normalize(self.fName)
 
     def check_classname(self) -> None:
-        """We will use normalize(self.fName.fString) to lookup the class name during reading.
+        """We will use normalize(self.fName) to lookup the class name during reading.
 
         But other types may be templated containers of this type so we need to ensure cpptype_to_pytype
         returns the same class name.
@@ -38,16 +38,16 @@ class TStreamerInfo(TNamed):
         if (
             self.fObjects.fSize == 1
             and isinstance(self.fObjects.objects[0], TStreamerSTL)
-            and self.fObjects.objects[0].fName.fString == b"This"
+            and self.fObjects.objects[0].fName == b"This"
         ):
             # TODO: understand the purpose of these intermediate member types
             return
-        if self.fName.fString.startswith(b"pair<") and self.fObjects.fSize == 2:
+        if self.fName.startswith(b"pair<") and self.fObjects.fSize == 2:
             return
         clsname = self.class_name()
-        typename, _ = cpptype_to_pytype(self.fName.fString)
+        typename, _ = cpptype_to_pytype(self.fName)
         if clsname != typename:
-            msg = f"Class name mismatch: {clsname} != {typename} (raw: {self.fName.fString!r})"
+            msg = f"Class name mismatch: {clsname} != {typename} (raw: {self.fName!r})"
             raise ValueError(msg)
 
     def base_classes(self) -> list[str]:
@@ -70,9 +70,9 @@ class TStreamerInfo(TNamed):
     def element(self, name: bytes) -> "TStreamerElement":
         """Get the streamer element of the member (or base class) with this name."""
         for element in self.fObjects.objects:
-            if isinstance(element, TStreamerElement) and element.fName.fString == name:
+            if isinstance(element, TStreamerElement) and element.fName == name:
                 return element
-        msg = f"{self.fName.fString!r} has no element named {name!r}"
+        msg = f"{self.fName!r} has no element named {name!r}"
         raise KeyError(msg)
 
     def class_definition(self) -> ClassDef:
@@ -91,7 +91,7 @@ class TStreamerInfo(TNamed):
                 continue
             mdef, dep = element.member_definition(parent=self)
             dependencies.extend(dep)
-            mdoc = element.fTitle.fString.decode(ENCODING).strip()
+            mdoc = element.fTitle.decode(ENCODING).strip()
             # Prevent a syntax error from four consecutive double quotes
             if mdoc.endswith('"'):
                 mdoc += " "
@@ -129,8 +129,6 @@ def _structtype_to_pytype(fmt: str) -> type[int | float | bool | bytes]:
         return bool
     if fmt in ("float16", "double32"):
         return float
-    if fmt == "charstar":
-        return bytes
     msg = f"Unknown format character {fmt!r}"
     raise ValueError(msg)
 
@@ -321,11 +319,11 @@ class TStreamerElement(TNamed):
 
     def member_name(self) -> str:
         """Get the member name of this streamer element."""
-        return normalize(self.fName.fString)
+        return normalize(self.fName)
 
     def type_name(self) -> str:
         """Get the type name of this streamer element."""
-        return normalize(self.fTypeName.fString)
+        return normalize(self.fTypeName)
 
     def member_definition(self, parent: TStreamerInfo) -> tuple[str, list[str]]:
         """Get the member definition of this streamer element.
@@ -365,7 +363,7 @@ class TStreamerBasicType(TStreamerElement):
 
         # In TStreamerBasicType.member_definition
         if self.fType == ElementType.kDouble32:
-            title = self.fTitle.fString.decode("utf-8", errors="replace").strip()
+            title = self.fTitle.decode("utf-8", errors="replace").strip()
             xmin, xmax, nbits, factor = parse_double32_title(title)
 
             return (
@@ -374,6 +372,9 @@ class TStreamerBasicType(TStreamerElement):
             )
 
         fmt = self.fType.as_fmt()
+        if fmt == "charstar":
+            # A char* member: i32 length, then the bytes (Conventions §5.4, #20)
+            return f"{self.member_name()}: Annotated[bytes, ROOTString('charstar')]", []
         pytype = _structtype_to_pytype(fmt).__name__
         return f"{self.member_name()}: Annotated[{pytype}, Fmt({fmt!r})]", []
 
@@ -384,7 +385,7 @@ class TStreamerString(TStreamerElement):
         if self.fArrayLength > 0:
             msg = f"Array length not implemented for {self.__class__.__name__}"
             raise NotImplementedError(msg)
-        return f"{self.member_name()}: TString", []
+        return f"{self.member_name()}: Annotated[bytes, ROOTString('TString')]", []
 
 
 @serializable
@@ -412,12 +413,12 @@ class TStreamerBasicPointer(TStreamerElement):
         # which requires the TStreamerInfo instances themselves to be linked
         # if not (
         #     self.fCountClass == parent.fName
-        #     or normalize(self.fCountClass.fString) in parent.base_classes()
+        #     or normalize(self.fCountClass) in parent.base_classes()
         # ):
         #     msg = f"fCountClass {self.fCountClass} != parent.fName {parent.fName}"
         #     raise ValueError(msg)
 
-        countname = normalize(self.fCountName.fString)
+        countname = normalize(self.fCountName)
         atype = f"BasicArray({fmt!r}, {countname!r})"
         return (
             f"{self.member_name()}: Annotated[np.ndarray, {atype}]",
@@ -446,7 +447,7 @@ class TStreamerObjectPointer(TStreamerElement):
         if self.fArrayLength > 0:
             msg = f"Array length not implemented for {self.__class__.__name__}"
             raise NotImplementedError(msg)
-        ctype = self.fTypeName.fString
+        ctype = self.fTypeName
         if not ctype.endswith(b"*"):
             # appears to happen when std::unique_ptr<T> is used
             # e.g. RooRealVar's std::unique_ptr<RooAbsBinning> _binning (since v6-21-02)
@@ -482,9 +483,9 @@ class TStreamerLoop(TStreamerElement):
         # TODO: check fCountClass is in parent.base_classes()
         # See TStreamerBasicPointer.member_definition
 
-        countname = normalize(self.fCountName.fString)
+        countname = normalize(self.fCountName)
         atype = f"ObjectArray({countname!r})"
-        itemtype, dependencies = cpptype_to_pytype(self.fTypeName.fString)
+        itemtype, dependencies = cpptype_to_pytype(self.fTypeName)
         return (
             f"{self.member_name()}: Annotated[list[{itemtype}], {atype}]",
             list(dependencies),
@@ -499,7 +500,7 @@ class TStreamerObjectAny(TStreamerElement):
             return f"{self.member_name()}: {typename}", []
         # This may be a non-trivial type, e.g. vector<double>
         # or vector<TLorentzVector>
-        typename, dependencies = cpptype_to_pytype(self.fTypeName.fString)
+        typename, dependencies = cpptype_to_pytype(self.fTypeName)
         if self.fArrayLength > 0:
             typename = f"Annotated[list[{typename}], ObjectArray({self.fArrayLength})]"
         return f"{self.member_name()}: {typename}", list(dependencies)
@@ -511,10 +512,8 @@ class TStreamerObjectAnyPointer(TStreamerElement):
         if self.fArrayLength > 0:
             msg = f"Array length not implemented for {self.__class__.__name__}"
             raise NotImplementedError(msg)
-        # assert self.fTypeName.fString.endswith(b"*"), f"Expected pointer type, got {self.fTypeName.fString!r}"
-        typename, dependencies = cpptype_to_pytype(
-            self.fTypeName.fString.removesuffix(b"*")
-        )
+        # assert self.fTypeName.endswith(b"*"), f"Expected pointer type, got {self.fTypeName!r}"
+        typename, dependencies = cpptype_to_pytype(self.fTypeName.removesuffix(b"*"))
         if typename == parent.class_name():
             dependencies.remove(typename)
             typename = f'"{typename}"'
@@ -598,8 +597,8 @@ class TStreamerSTL(TStreamerElement):
 
     def member_definition(self, parent: TStreamerInfo):  # noqa: ARG002
         if STLType.kOffsetP <= self.fSTLtype < STLType.kOffsetP + STLType.kSTLend:
-            assert self.fTypeName.fString.endswith(b"*")
-        typename, dependencies = cpptype_to_pytype(self.fTypeName.fString)
+            assert self.fTypeName.endswith(b"*")
+        typename, dependencies = cpptype_to_pytype(self.fTypeName)
         return f"{self.member_name()}: {typename}", list(dependencies)
 
 
@@ -608,4 +607,8 @@ class TStreamerSTLstring(TStreamerSTL):
     """STL string streamer element."""
 
     def member_definition(self, parent: TStreamerInfo):  # noqa: ARG002
-        return f"{self.member_name()}: STLString", []
+        # A std::string data member has a byte count and version word (Conventions §5.3)
+        return (
+            f"{self.member_name()}: Annotated[bytes, ROOTString('TString', framed=True)]",
+            [],
+        )

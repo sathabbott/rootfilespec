@@ -14,4 +14,4 @@ from rootfilespec.container import (
     StdVector,
 )
 from rootfilespec.serializable import ROOTSerializable, serializable
-from rootfilespec.structutil import Fmt, StdBitset
+from rootfilespec.structutil import Fmt, ROOTString, StdBitset

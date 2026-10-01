@@ -89,16 +89,13 @@ EXPECTED_FAILURES: dict[str, ExpectedFailure] = {
     "serialization/references.root": ExpectedFailure(
         (101,), ValueError, "Unknown type TRef "
     ),
-    # The TStringLong member of SText is left uninterpreted and its bytes are
-    # then read as the next member
-    "serialization/stringlong.root": ExpectedFailure(
-        (101,), IndexError, "Cannot get slice"
+    # The TDatime, TString and TStringLong records read; a TObject record has
+    # no byte count, which the reader requires
+    "serialization/unframed-records.root": ExpectedFailure(
+        (123,), ValueError, "fByteCount is 0"
     ),
     # TH1L derives from the missing TArrayL64 (#107); its version word of 0 is
     # also misread as announcing a checksum (#111)
-    "serialization/unframed-records.root": ExpectedFailure(
-        (123, 101), AttributeError, "type object 'int' has no attribute 'read'"
-    ),
     "serialization/version-zero.root": ExpectedFailure(
         (107, 111), TypeError, r"__init__\(\) missing 36 required positional arguments"
     ),
@@ -153,7 +150,7 @@ def test_tlist_options():
     with open_path(DATA / "serialization/object-tags.root") as reader:
         lst = reader.fetch(reader.keylist()[b"lst"])
     assert isinstance(lst, TList)
-    assert lst.fName.fString == b"lst"
+    assert lst.fName == b"lst"
     assert len(lst.items) == 4
     assert lst.options == [b"", b"", b"opt", b""]
 

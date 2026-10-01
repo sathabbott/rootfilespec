@@ -1,79 +1,28 @@
-from rootfilespec.bootstrap.streamedobject import StreamedObject
-from rootfilespec.serializable import (
-    Members,
-    ReadBuffer,
-    ROOTSerializable,
-    serializable,
-)
+from typing import Annotated
 
+from rootfilespec.structutil import ROOTString
 
-@serializable
-class TString(ROOTSerializable):
-    """A class representing a TString.
+TString = Annotated[bytes, ROOTString("TString")]
+"""A ``TString`` data member, read as plain ``bytes``
 
-    TODO: this can just be Annotated[bytes, TString] since nobody subclasses it
-    """
+A counted string: one length byte, or 255 then a 4-byte length, then the bytes
+(root-io-spec Conventions §5.1). ``TString`` has no Python class: a member is
+``bytes``, and the encoding lives in the annotation. Read a bare one by hand
+with ``ROOTString("TString").read(buffer)``.
+"""
 
-    fString: bytes
-    """The string data."""
+TStringLong = Annotated[bytes, ROOTString("charstar")]
+"""A ``TStringLong``, read as plain ``bytes``
 
-    def __hash__(self) -> int:
-        return hash(self.fString)
-
-    @classmethod
-    def update_members(cls, members: Members, buffer: ReadBuffer):
-        """Reads a TString from the given buffer.
-        TStrings are always prefixed with a byte indicating the length of the string.
-        If that byte is larger than 255, then there are 4 additional bytes are used to store the length.
-
-        In ROOT, this is implemented at TBufferFile::ReadTString()
-        https://root.cern/doc/v636/TBufferFile_8cxx_source.html#l00187
-        """
-        (length,), buffer = buffer.unpack(">B")
-        if length == 255:
-            (length,), buffer = buffer.unpack(">i")
-        data, buffer = buffer.consume(length)
-        members["fString"] = data
-        return members, buffer
-
+``TStringLong`` derives from ``TString`` but writes an i32 length, then the bytes,
+with no 255 escape and no frame, wherever it appears: the ``char*`` encoding
+(root-io-spec Conventions §5.1.1).
+"""
 
 string = TString
+"""A ``std::string`` looked up by name, as an object of its own (a key's class)
 
-
-@serializable
-class STLString(StreamedObject):
-    """String with a stream header (see also TObjString)"""
-
-    value: bytes
-
-    @classmethod
-    def update_members(cls, members: Members, buffer: ReadBuffer):
-        (length,), buffer = buffer.unpack(">B")
-        if length == 255:
-            (length,), buffer = buffer.unpack(">i")
-        data, buffer = buffer.consume(length)
-        members["value"] = data
-        return members, buffer
-
-
-@serializable
-class RString(ROOTSerializable):
-    """A class representing an RString."""
-
-    fString: bytes
-    """The string data."""
-
-    def __hash__(self) -> int:
-        return hash(self.fString)
-
-    @classmethod
-    def update_members(cls, members: Members, buffer: ReadBuffer):
-        """Reads an RString from the given buffer.
-        RStrings are always prefixed with a 32bit unsigned integer indicating the length of the string.
-        String data are UTF-8 encoded.
-        """
-
-        (length,), buffer = buffer.unpack("<I")
-        data, buffer = buffer.consume(length)
-        members["fString"] = data
-        return members, buffer
+It is the bare counted string, as a ``TString`` is. A ``std::string`` data member
+has a byte count and version word first:
+``Annotated[bytes, ROOTString("TString", framed=True)]``.
+"""

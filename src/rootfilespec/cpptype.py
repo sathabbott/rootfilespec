@@ -44,6 +44,17 @@ _cpp_primitives = {
     b"float": "Annotated[float, Fmt('>f')]",
     b"double": "Annotated[float, Fmt('>d')]",
 }
+
+# Strings are plain bytes, with the encoding in the annotation (#68). Here they
+# are container elements or pointees, which have no byte count and version word
+# of their own, so a std::string is the bare counted string, like a TString
+# (root-io-spec Conventions §5.1). A std::string data member is framed: see
+# TStreamerSTLstring.
+_cpp_strings = {
+    b"TString": "Annotated[bytes, ROOTString('TString')]",
+    b"string": "Annotated[bytes, ROOTString('TString')]",
+    b"std::string": "Annotated[bytes, ROOTString('TString')]",
+}
 # cppname -> python name, expected number of template arguments
 _cpp_templates: dict[bytes, tuple[str, int]] = {
     b"vector": ("StdVector", 1),
@@ -135,6 +146,8 @@ class _CppTypeAstName(_CppTypeAstNode):
         if self.name in _cpp_primitives:
             deps: set[str] = set()
             return _cpp_primitives[self.name], deps
+        if self.name in _cpp_strings:
+            return _cpp_strings[self.name], set()
         pyname = normalize(self.name)
         return pyname, {pyname}
 

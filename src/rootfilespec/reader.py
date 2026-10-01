@@ -122,11 +122,7 @@ class FileReader:
     def streamerinfos(self) -> dict[bytes, TStreamerInfo]:
         """The TStreamerInfo of each class in the StreamerInfo record, by class name"""
         items = self.streamerinfo.items if self.streamerinfo else []
-        return {
-            item.fName.fString: item
-            for item in items
-            if isinstance(item, TStreamerInfo)
-        }
+        return {item.fName: item for item in items if isinstance(item, TStreamerInfo)}
 
     def close(self) -> None:
         while self._on_close:

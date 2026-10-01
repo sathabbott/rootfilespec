@@ -11,6 +11,7 @@ from rootfilespec.serializable import (
     ReadObjMethod,
     ROOTSerializable,
     _ReadWrapper,
+    read_value,
     serializable,
 )
 
@@ -169,7 +170,10 @@ def read_streamed_item(
         return Ref(Some()), buffer
     if itemheader.fClassName:
         clsname = normalize(itemheader.fClassName)
-        dynmethod = buffer.file_context.type_by_name(clsname).read
+        dyntype = buffer.file_context.type_by_name(clsname)
+
+        def dynmethod(buffer: ReadBuffer) -> tuple[ROOTSerializable, ReadBuffer]:
+            return read_value(dyntype, buffer)
     elif method is not None:
         clsname = f"Ref ({method})"
         if (
