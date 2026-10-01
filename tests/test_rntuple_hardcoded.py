@@ -339,7 +339,10 @@ def test_read_contributors():
         )
 
         extended_page_descriptions = rntuple.get_extended_page_descriptions()
-        assert extended_page_descriptions == [  # PagelistEnvelopes
+        assert [
+            [[column.pages for column in cluster] for cluster in envelope]
+            for envelope in extended_page_descriptions
+        ] == [  # PagelistEnvelopes
             [  # Clusters (columnlists)
                 [  # Columns (pagelists)
                     [  # Pages (page descriptions)
@@ -615,7 +618,10 @@ def test_read_multiple_rntuples():
         )
 
         extended_page_descriptions_a = rntuple_a.get_extended_page_descriptions()
-        assert extended_page_descriptions_a == [  # PagelistEnvelopes
+        assert [
+            [[column.pages for column in cluster] for cluster in envelope]
+            for envelope in extended_page_descriptions_a
+        ] == [  # PagelistEnvelopes
             [  # Clusters (columnlists)
                 [  # Columns (pagelists)
                     [  # Pages (page descriptions)
@@ -815,7 +821,10 @@ def test_read_multiple_rntuples():
         )
 
         extended_page_descriptions_b = rntuple_b.get_extended_page_descriptions()
-        assert extended_page_descriptions_b == [  # PagelistEnvelopes
+        assert [
+            [[column.pages for column in cluster] for cluster in envelope]
+            for envelope in extended_page_descriptions_b
+        ] == [  # PagelistEnvelopes
             [  # Clusters (columnlists)
                 [  # Columns (pagelists)
                     [  # Pages (page descriptions)

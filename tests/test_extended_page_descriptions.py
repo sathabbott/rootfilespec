@@ -1,14 +1,21 @@
 import dataclasses
+import re
 from pathlib import Path
 
 import pytest
+import tomli  # tomllib, once Python 3.10 is dropped
 from skhep_testdata import data_path  # type: ignore[import-not-found]
 
 from rootfilespec.reader import open_path
 from rootfilespec.rntuple.RNTuple import RNTuple, SchemaDescription
 from rootfilespec.rntuple.schema import ColumnType
 
-DATA = Path(__file__).parent.parent / "reference" / "root-io-spec" / "data" / "rntuple"
+SPEC = Path(__file__).parent.parent / "reference" / "root-io-spec"
+DATA = SPEC / "data" / "rntuple"
+
+MULTIPLE_REPRESENTATIONS = "test_multiple_representations_rntuple_v1-0-0-0.root"
+MULTIPLE_CLUSTER_GROUPS = "test_multiple_cluster_groups_rntuple_v1-0-0-0.root"
+EXTENSION_COLUMNS = "test_extension_columns_rntuple_v1-0-0-0.root"
 
 
 def _load(path: str | Path) -> RNTuple:
@@ -18,33 +25,54 @@ def _load(path: str | Path) -> RNTuple:
         return RNTuple.from_anchor(reader.fetch(keylist[name]), reader.fetch.buffer)
 
 
+def _ranges(rntuple: RNTuple) -> list[list[tuple[bool, int, int, int, int]]]:
+    """(suppressed, firstElementIndex, nElements, nZeroElements, pages) per column, per cluster"""
+    return [
+        [
+            (
+                column.suppressed,
+                column.firstElementIndex,
+                column.nElements,
+                column.nZeroElements,
+                len(column.pages),
+            )
+            for column in cluster
+        ]
+        for envelope in rntuple.get_extended_page_descriptions()
+        for cluster in envelope
+    ]
+
+
 def test_suppressed_columns_keep_their_position():
     """A column's position is its column ID, suppressed or not
 
     In this file the field "real" has two representations, Real32 (column 0)
     and Real16 (column 1), and each cluster suppresses one of them. Before,
-    cluster 1's only entry was column 1, at position 0.
+    cluster 1's only entry was column 1, at position 0. A suppressed column
+    takes the element range of the active one (spec, *Suppressed Columns*).
     """
-    rntuple = _load(data_path("test_multiple_representations_rntuple_v1-0-0-0.root"))
-    (envelope,) = rntuple.get_extended_page_descriptions()
-    assert [[len(column) for column in cluster] for cluster in envelope] == [
-        [1, 0],
-        [0, 1],
-        [1, 0],
+    rntuple = _load(data_path(MULTIPLE_REPRESENTATIONS))
+    assert _ranges(rntuple) == [
+        [(False, 0, 1, 0, 1), (True, 0, 1, 0, 0)],
+        [(True, 1, 1, 0, 0), (False, 1, 1, 0, 1)],
+        [(False, 2, 1, 0, 1), (True, 2, 1, 0, 0)],
     ]
-    (page,) = envelope[1][1]
+    (envelope,) = rntuple.get_extended_page_descriptions()
+    (page,) = envelope[1][1].pages
     assert page.columnID == 1
     assert page.columnType == ColumnType.kReal16
     suppressed = rntuple.pagelistEnvelopes[0].pageLocations[1][0]
     assert suppressed.elementoffset < 0
+    assert envelope[1][0].pageLocations is suppressed
 
 
 def test_cluster_ids_continue_across_cluster_groups():
     """Issue #116: 3 cluster groups of 5, 4 and 3 clusters are clusters 0 to 11"""
-    rntuple = _load(data_path("test_multiple_cluster_groups_rntuple_v1-0-0-0.root"))
+    rntuple = _load(data_path(MULTIPLE_CLUSTER_GROUPS))
     assert rntuple.firstClusterIDs == [0, 5, 9]
     ids = [
-        {page.clusterID for column in cluster for page in column}
+        {column.clusterID for column in cluster}
+        | {page.clusterID for column in cluster for page in column.pages}
         for envelope in rntuple.get_extended_page_descriptions()
         for cluster in envelope
     ]
@@ -74,9 +102,35 @@ def test_field_paths_user_class():
         assert path.rsplit(b".", 1)[-1] == names[i]
 
 
+@pytest.mark.skipif(not DATA.exists(), reason="reference/root-io-spec not checked out")
+def test_columns_user_class():
+    """Each column's field path and type, as root-io-spec's case pins them
+    ("<field path>: column type <name> = <value>", at the column's offset)"""
+    case = tomli.loads(
+        (SPEC / "gen" / "cases" / "rntuple" / "user-class" / "case.toml").read_text()
+    )
+    pinned = sorted(
+        (record["offset"], match[1].encode(), ColumnType(record["value"]))
+        for record in case["bytes"]
+        if (
+            match := re.fullmatch(
+                r"(\S+): column type \w+ = 0x[0-9a-f]+", record["name"]
+            )
+        )
+    )
+    assert len(pinned) == 19
+    rntuple = _load(DATA / "user-class.root")
+    for envelope in rntuple.get_extended_page_descriptions():
+        for cluster in envelope:
+            assert [
+                (column.fieldPath, column.columnDescription.fColumnType)
+                for column in cluster
+            ] == [(path, type_) for _, path, type_ in pinned]
+
+
 def test_field_paths_schema_extension():
     """Field IDs continue from the header into the footer's schema extension"""
-    rntuple = _load(data_path("test_extension_columns_rntuple_v1-0-0-0.root"))
+    rntuple = _load(data_path(EXTENSION_COLUMNS))
     assert len(rntuple.headerEnvelope.fieldDescriptions) == 1
     schema = rntuple.schemaDescription
     assert [schema.field_path(i) for i in range(4)] == [
@@ -87,40 +141,56 @@ def test_field_paths_schema_extension():
     ]
 
 
-# scikit-hep-testdata files whose page lists differ from the root-io-spec ones:
-# suppressed columns, several cluster groups, and a model extended after the
-# first cluster was committed
-SKHEP_FILES = [
-    "test_multiple_representations_rntuple_v1-0-0-0.root",
-    "test_multiple_cluster_groups_rntuple_v1-0-0-0.root",
-    "test_extension_columns_rntuple_v1-0-0-0.root",
-]
-
-
 def test_columns_added_by_model_extension():
     """A cluster committed before the model was extended lists only the columns
-    that existed then: here 2 of the 4. The two later ones get empty entries,
-    as ROOT synthesizes them (AddExtendedColumnRanges), so a position is still
-    the column ID."""
-    rntuple = _load(data_path("test_extension_columns_rntuple_v1-0-0-0.root"))
+    that existed then: here 2 of the 4. The view still has all 4, with the
+    ranges ROOT's reader gives them (AddExtendedColumnRanges).
+
+    float_field (column 1) and intvec_field (column 2) are deferred from
+    elements 200 and 400: they cover every cluster from element 0, the elements
+    before those being zeros with no page (spec, *Column Description*).
+    intvec_field._0 (column 3) is inside the vector, so it is not deferred: the
+    zero vectors are empty, and it holds no elements before cluster 1.
+    """
+    rntuple = _load(data_path(EXTENSION_COLUMNS))
+    columns = rntuple.schemaDescription.columnDescriptions
+    assert [c.fFirstElementIndex for c in columns] == [None, 200, 400, None]
     (pagelist,) = rntuple.pagelistEnvelopes
     assert [len(columns) for columns in pagelist.pageLocations] == [2, 4, 4, 4]
-    (envelope,) = rntuple.get_extended_page_descriptions()
-    assert [[len(column) for column in cluster] for cluster in envelope] == [
-        [2, 1, 0, 0],
-        [1, 1, 1, 1],
-        [1, 1, 1, 1],
-        [1, 1, 1, 1],
+    assert [s.fNEntries for s in pagelist.clusterSummaries] == [350, 117, 84, 49]
+    assert _ranges(rntuple) == [
+        [
+            (False, 0, 350, 0, 2),
+            (False, 0, 350, 200, 1),
+            (False, 0, 350, 350, 0),
+            (False, 0, 0, 0, 0),
+        ],
+        [
+            (False, 350, 117, 0, 1),
+            (False, 350, 117, 0, 1),
+            (False, 350, 117, 50, 1),
+            (False, 0, 134, 0, 1),
+        ],
+        [
+            (False, 467, 84, 0, 1),
+            (False, 467, 84, 0, 1),
+            (False, 467, 84, 0, 1),
+            (False, 134, 168, 0, 1),
+        ],
+        [
+            (False, 551, 49, 0, 1),
+            (False, 551, 49, 0, 1),
+            (False, 551, 49, 0, 1),
+            (False, 302, 98, 0, 1),
+        ],
     ]
-
-
-def test_page_list_with_a_missing_header_column_raises():
-    """Only columns of the schema extension may be missing from a page list"""
-    rntuple = _load(data_path("test_extension_columns_rntuple_v1-0-0-0.root"))
-    (pagelist,) = rntuple.pagelistEnvelopes
-    pagelist.pageLocations.items[0].items = []
-    with pytest.raises(ValueError, match="Cluster 0 lists 0 columns"):
-        rntuple.get_extended_page_descriptions()
+    (envelope,) = rntuple.get_extended_page_descriptions()
+    assert [column.pageLocations is None for column in envelope[0]] == [
+        False,
+        False,
+        True,
+        True,
+    ]
 
 
 @pytest.mark.parametrize(
@@ -130,10 +200,20 @@ def test_page_list_with_a_missing_header_column_raises():
             pytest.param(DATA / name, id=name)
             for name in sorted(p.name for p in DATA.glob("*.root"))
         ),
-        *(pytest.param(name, id=name) for name in SKHEP_FILES),
+        *(
+            pytest.param(name, id=name)
+            for name in [
+                MULTIPLE_REPRESENTATIONS,
+                MULTIPLE_CLUSTER_GROUPS,
+                EXTENSION_COLUMNS,
+            ]
+        ),
     ],
 )
-def test_every_page_knows_its_column_and_field(path: Path | str):
+def test_every_column_is_complete(path: Path | str):
+    """In every cluster: one entry per column; a suppressed column has no pages;
+    the pages hold the elements after the zeros; and a column's clusters follow
+    each other with no gap, from element 0."""
     if isinstance(path, Path):
         if not path.exists():
             pytest.skip("reference/root-io-spec not checked out")
@@ -141,22 +221,132 @@ def test_every_page_knows_its_column_and_field(path: Path | str):
     else:
         rntuple = _load(data_path(path))
     schema = rntuple.schemaDescription
+    nextElement = [0] * len(schema.columnDescriptions)
     for envelope in rntuple.get_extended_page_descriptions():
         for cluster in envelope:
-            assert len(cluster) == len(schema.columnDescriptions)
-            for columnID, column in enumerate(cluster):
-                for page in column:
-                    assert page.columnID == columnID
-                    field_id = schema.columnDescriptions[columnID].fFieldID
-                    assert page.fieldID == field_id
-                    assert page.fieldDescription == schema.fieldDescriptions[field_id]
-                    assert page.fieldPath == schema.field_path(field_id)
+            assert [column.columnID for column in cluster] == list(
+                range(len(schema.columnDescriptions))
+            )
+            for column in cluster:
+                if column.suppressed:
+                    assert column.pages == []
+                    assert column.nZeroElements == 0
+                else:
+                    assert column.nElements - column.nZeroElements == sum(
+                        page.pageDescription.n_elements for page in column.pages
+                    )
+                assert column.firstElementIndex == nextElement[column.columnID]
+                nextElement[column.columnID] += column.nElements
+                for page in column.pages:
+                    assert (page.clusterID, page.columnID, page.fieldPath) == (
+                        column.clusterID,
+                        column.columnID,
+                        column.fieldPath,
+                    )
+
+
+def test_page_list_with_a_missing_header_column_raises():
+    """Only columns of the schema extension may be missing from a page list"""
+    rntuple = _load(data_path(EXTENSION_COLUMNS))
+    (pagelist,) = rntuple.pagelistEnvelopes
+    pagelist.pageLocations.items[0].items = []
+    with pytest.raises(ValueError, match="Cluster 0 lists 0 columns"):
+        rntuple.get_extended_page_descriptions()
+
+
+def test_page_list_with_an_extra_column_raises():
+    rntuple = _load(data_path(MULTIPLE_CLUSTER_GROUPS))
+    columnlist = rntuple.pagelistEnvelopes[1].pageLocations.items[2]
+    columnlist.items.append(columnlist.items[0])
+    with pytest.raises(ValueError, match="Cluster 7 lists 4 columns"):
+        rntuple.get_extended_page_descriptions()
+
+
+def test_page_list_with_fewer_columns_than_an_earlier_one_raises():
+    """Only a model extension adds columns, so a later cluster cannot list fewer"""
+    rntuple = _load(data_path(EXTENSION_COLUMNS))
+    (pagelist,) = rntuple.pagelistEnvelopes
+    pagelist.pageLocations.items[2].items.pop()
+    with pytest.raises(
+        ValueError, match="Cluster 2 lists 3 columns, fewer than the 4 of cluster 1"
+    ):
+        rntuple.get_extended_page_descriptions()
+
+
+def test_page_lists_must_match_the_cluster_groups():
+    rntuple = _load(data_path(MULTIPLE_CLUSTER_GROUPS))
+    rntuple.pagelistEnvelopes.pop()
+    with pytest.raises(ValueError, match="2 page lists for 3 cluster groups"):
+        rntuple.get_extended_page_descriptions()
+
+
+def test_page_list_must_have_its_groups_clusters():
+    rntuple = _load(data_path(MULTIPLE_CLUSTER_GROUPS))
+    pagelist = rntuple.pagelistEnvelopes[1]
+    pagelist.pageLocations.items.pop()
+    pagelist.clusterSummaries.items.pop()
+    with pytest.raises(
+        ValueError, match="page locations for 3 clusters, the group says 4"
+    ):
+        rntuple.get_extended_page_descriptions()
+
+
+def test_page_list_must_have_a_summary_per_cluster():
+    rntuple = _load(data_path(MULTIPLE_CLUSTER_GROUPS))
+    rntuple.pagelistEnvelopes[1].clusterSummaries.items.pop()
+    with pytest.raises(ValueError, match="has 3 cluster summaries"):
+        rntuple.get_extended_page_descriptions()
+
+
+def test_suppressed_column_with_pages_raises():
+    """Suppressed columns always have an empty list of pages (spec)"""
+    rntuple = _load(data_path(MULTIPLE_REPRESENTATIONS))
+    clusters = rntuple.pagelistEnvelopes[0].pageLocations.items
+    clusters[1].items[0].items = list(clusters[0].items[0].items)
+    with pytest.raises(ValueError, match="column 0 is suppressed but has 1 pages"):
+        rntuple.get_extended_page_descriptions()
+
+
+def test_field_with_every_representation_suppressed_raises():
+    """Every field has exactly one active representation in a cluster (spec)"""
+    rntuple = _load(data_path(MULTIPLE_REPRESENTATIONS))
+    clusters = rntuple.pagelistEnvelopes[0].pageLocations.items
+    clusters[1].items[1] = clusters[1].items[0]
+    with pytest.raises(ValueError, match="no other representation of field b'real'"):
+        rntuple.get_extended_page_descriptions()
+
+
+def test_deferred_column_whose_pages_disagree_raises():
+    """intvec_field starts at element 400 (column description), so in cluster 1
+    (elements 350 to 467) its pages start at 400"""
+    rntuple = _load(data_path(EXTENSION_COLUMNS))
+    rntuple.pagelistEnvelopes[0].pageLocations.items[1].items[2].elementoffset = 401
+    with pytest.raises(
+        ValueError, match="column 2 has elements 350 to 467, but its pages hold 67"
+    ):
+        rntuple.get_extended_page_descriptions()
+
+
+def test_deferred_column_inside_a_collection_raises():
+    """The format cannot say how many elements a deferred column inside a
+    collection has (spec, *Column Description*)"""
+    rntuple = _load(data_path(EXTENSION_COLUMNS))
+    extension = rntuple.footerEnvelope.schemaExtension.columnDescriptions.items
+    extension[2] = dataclasses.replace(extension[2], fFlags=1, fFirstElementIndex=5)
+    with pytest.raises(ValueError, match="inside the collection or variant"):
+        rntuple.get_extended_page_descriptions()
+
+
+def test_deferred_column_without_a_first_representation_raises():
+    rntuple = _load(data_path(EXTENSION_COLUMNS))
+    extension = rntuple.footerEnvelope.schemaExtension.columnDescriptions.items
+    extension[0] = dataclasses.replace(extension[0], fRepresentationIndex=1)
+    with pytest.raises(ValueError, match="has no earlier representation"):
+        rntuple.get_extended_page_descriptions()
 
 
 def test_field_path_errors():
-    schema = _load(
-        data_path("test_extension_columns_rntuple_v1-0-0-0.root")
-    ).schemaDescription
+    schema = _load(data_path(EXTENSION_COLUMNS)).schemaDescription
     with pytest.raises(ValueError, match="parent chain reaches field ID 9"):
         schema.field_path(9)
     fields = list(schema.fieldDescriptions)
