@@ -87,10 +87,59 @@ def test_field_paths_schema_extension():
     ]
 
 
-@pytest.mark.skipif(not DATA.exists(), reason="reference/root-io-spec not checked out")
-@pytest.mark.parametrize("name", sorted(p.name for p in DATA.glob("*.root")))
-def test_every_page_knows_its_column_and_field(name: str):
-    rntuple = _load(DATA / name)
+# scikit-hep-testdata files whose page lists differ from the root-io-spec ones:
+# suppressed columns, several cluster groups, and a model extended after the
+# first cluster was committed
+SKHEP_FILES = [
+    "test_multiple_representations_rntuple_v1-0-0-0.root",
+    "test_multiple_cluster_groups_rntuple_v1-0-0-0.root",
+    "test_extension_columns_rntuple_v1-0-0-0.root",
+]
+
+
+def test_columns_added_by_model_extension():
+    """A cluster committed before the model was extended lists only the columns
+    that existed then: here 2 of the 4. The two later ones get empty entries,
+    as ROOT synthesizes them (AddExtendedColumnRanges), so a position is still
+    the column ID."""
+    rntuple = _load(data_path("test_extension_columns_rntuple_v1-0-0-0.root"))
+    (pagelist,) = rntuple.pagelistEnvelopes
+    assert [len(columns) for columns in pagelist.pageLocations] == [2, 4, 4, 4]
+    (envelope,) = rntuple.get_extended_page_descriptions()
+    assert [[len(column) for column in cluster] for cluster in envelope] == [
+        [2, 1, 0, 0],
+        [1, 1, 1, 1],
+        [1, 1, 1, 1],
+        [1, 1, 1, 1],
+    ]
+
+
+def test_page_list_with_a_missing_header_column_raises():
+    """Only columns of the schema extension may be missing from a page list"""
+    rntuple = _load(data_path("test_extension_columns_rntuple_v1-0-0-0.root"))
+    (pagelist,) = rntuple.pagelistEnvelopes
+    pagelist.pageLocations.items[0].items = []
+    with pytest.raises(ValueError, match="Cluster 0 lists 0 columns"):
+        rntuple.get_extended_page_descriptions()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        *(
+            pytest.param(DATA / name, id=name)
+            for name in sorted(p.name for p in DATA.glob("*.root"))
+        ),
+        *(pytest.param(name, id=name) for name in SKHEP_FILES),
+    ],
+)
+def test_every_page_knows_its_column_and_field(path: Path | str):
+    if isinstance(path, Path):
+        if not path.exists():
+            pytest.skip("reference/root-io-spec not checked out")
+        rntuple = _load(path)
+    else:
+        rntuple = _load(data_path(path))
     schema = rntuple.schemaDescription
     for envelope in rntuple.get_extended_page_descriptions():
         for cluster in envelope:

@@ -235,9 +235,16 @@ class RNTuple:
         column-ID order, as the spec guarantees: a suppressed column is there
         too, with no pages. Each page carries its global cluster ID, its column
         ID and its field.
+
+        A cluster committed before the model was extended lists only the
+        columns that existed then, so its page list can end before the schema
+        extension's columns do. Those trailing columns get empty entries, as
+        ROOT synthesizes them when reading (``AddExtendedColumnRanges``,
+        ``RNTupleDescriptor.cxx:920`` at 6.40.04). Any other mismatch raises.
         """
         schema = self.schemaDescription
         columns = schema.columnDescriptions
+        nHeaderColumns = len(self.headerEnvelope.columnDescriptions.items)
         paths: dict[int, bytes] = {}
         if len(self.pagelistEnvelopes) != len(self.footerEnvelope.clusterGroups):
             msg = (
@@ -262,9 +269,20 @@ class RNTuple:
             clusters: list[list[list[InterpretablePage]]] = []
             for index, columnlist in enumerate(pagelistEnvelope.pageLocations):
                 clusterID = firstClusterID + index
+                if not nHeaderColumns <= len(columnlist) <= len(columns):
+                    msg = (
+                        f"Cluster {clusterID} lists {len(columnlist)} columns; the "
+                        f"schema has {nHeaderColumns} in the header and "
+                        f"{len(columns)} in all"
+                    )
+                    raise ValueError(msg)
+                # Columns added by a later model extension, which the cluster predates
+                missing: list[list[RPageDescription]] = [
+                    [] for _ in range(len(columns) - len(columnlist))
+                ]
                 clusterPages: list[list[InterpretablePage]] = []
                 for columnID, (pagelist, column) in enumerate(
-                    zip(columnlist, columns, strict=True)
+                    zip([*columnlist, *missing], columns, strict=True)
                 ):
                     fieldID = column.fFieldID
                     if fieldID not in paths:
@@ -274,7 +292,7 @@ class RNTuple:
                             InterpretablePage(
                                 pageDescription=page_description,
                                 uncompressedSize=ceil(
-                                    abs(page_description.fNElements)
+                                    page_description.n_elements
                                     * column.fBitsOnStorage
                                     / 8
                                 ),  # Convert bits to bytes
