@@ -2,6 +2,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Annotated, Generic, TypeVar, cast
 
+import xxhash  # type: ignore[import-not-found]
 from typing_extensions import Self
 
 from rootfilespec.bootstrap.compression import decompress
@@ -74,12 +75,8 @@ class REnvelope(ROOTSerializable):
     @classmethod
     def read(cls, buffer: ReadBuffer) -> tuple[Self, ReadBuffer]:
         """Reads an REnvelope from the given buffer."""
-        #### Save initial buffer position (for checking unknown bytes)
-        payload_start_pos = buffer.relpos
-
         #### Get the first 64bit integer (lengthType) which contains the length and type of the envelope
-        # lengthType, buffer = buffer.consume(8)
-        (lengthType,), buffer = buffer.unpack("<Q")
+        (lengthType,), _ = buffer.unpack("<Q")
 
         # Envelope type, encoded in the 16 least significant bits
         typeID = lengthType & 0xFFFF
@@ -88,30 +85,44 @@ class REnvelope(ROOTSerializable):
             msg = f"Envelope type {typeID} read does not match passed class {cls.__name__}"
             raise ValueError(msg)
 
-        # Envelope size (uncompressed), encoded in the 48 most significant bits
+        # Envelope size (uncompressed), encoded in the 48 most significant bits.
+        # It includes the preamble and the checksum, so it is at least 16 bytes
         length = lengthType >> 16
-        # Ensure that the length of the envelope matches the buffer length
-        if length - 8 != len(buffer):
-            msg = f"Length of envelope ({length} minus 8) of type {typeID} does not match buffer length ({len(buffer)})"
+        if length < 16:
+            msg = f"Length of envelope ({length}) of type {typeID} is shorter than 16 bytes"
+            raise ValueError(msg)
+        if length != len(buffer):
+            msg = f"Length of envelope ({length}) of type {typeID} does not match buffer length ({len(buffer)})"
             raise ValueError(msg)
 
-        members = {"typeID": typeID, "length": length}
-        #### Get the payload
-        members, buffer = cls.update_members(members, buffer)
+        #### Split the envelope once: the bytes the checksum covers, then the checksum
+        # The checksum covers [0, length - 8): the preamble, the payload and any
+        # unknown trailing bytes (root-io-spec ERRATA 5; "Checksum verification
+        # ... must include both known and unknown contents")
+        covered, trailer = buffer[: length - 8], buffer[length - 8 :]
+        (checksum,), rest = trailer.unpack("<Q")
 
-        #### Consume any unknown trailing information in the envelope
-        _unknown, buffer = buffer.consume(
-            length - (buffer.relpos - payload_start_pos) - 8
-        )
-        # Unknown Bytes = Envelope Size - Envelope Bytes Read - Checksum (8 bytes)
-        #   Envelope Bytes Read  = buffer.relpos - payload_start_pos
+        #### Verify it before trusting the payload, as ROOT does
+        # (RNTupleSerialize.cxx:909-939)
+        computed = xxhash.xxh3_64_intdigest(covered.data)
+        if computed != checksum:
+            msg = (
+                f"{cls.__name__} checksum mismatch: "
+                f"stored {checksum:#018x}, computed {computed:#018x}"
+            )
+            raise ValueError(msg)
 
-        #### Get the checksum (appended to envelope when writing to disk)
-        (checksum,), buffer = buffer.unpack("<Q")  # Last 8 bytes of the envelope
-        members["checksum"] = checksum
+        #### Get the payload, after the 8-byte preamble
+        _, payload = covered.consume(8)
+        members = {"typeID": typeID, "length": length, "checksum": checksum}
+        members, payload = cls.update_members(members, payload)
+
+        #### Keep any unknown trailing information in the envelope
+        _unknown, _ = payload.consume(len(payload))
+
         envelope = cls(**members)
         envelope._unknown = _unknown
-        return envelope, buffer
+        return envelope, rest
 
 
 EnvType = TypeVar("EnvType", bound=REnvelope)
@@ -149,8 +160,24 @@ class REnvelopeLocator(Generic[EnvType]):
 
         Envelopes are compressed, so this decompresses and deserializes.
         """
+        if len(buffer) != self.size:
+            msg = (
+                f"{self.envtype.__name__} at {self.locator}: expected {self.size} "
+                f"bytes, got {len(buffer)}"
+            )
+            raise ValueError(msg)
+
         #### Decompress the buffer if necessary
-        if len(buffer) != self.length:
+        # RNTuple decompression tests equality of the stored size (the locator's)
+        # and the length: equal means stored raw, smaller compressed, and larger
+        # is an error (root-io-spec NOTES 2; RNTupleZip.hxx:106-113)
+        if self.size > self.length:
+            msg = (
+                f"{self.envtype.__name__} at {self.locator}: stored size "
+                f"{self.size} is larger than its uncompressed length {self.length}"
+            )
+            raise ValueError(msg)
+        if self.size < self.length:
             buffer = decompress(buffer, self.length)
 
         #### Now read the envelope
