@@ -169,6 +169,15 @@ def test_field_columns_with_unequal_representations_raise():
         broken.field_columns()
 
 
+def test_field_columns_with_a_column_of_no_field_raise():
+    schema = _load(data_path(MULTIPLE_REPRESENTATIONS)).schemaDescription
+    columns = list(schema.columnDescriptions)
+    columns[1] = dataclasses.replace(columns[1], fFieldID=5)
+    broken = dataclasses.replace(schema, columnDescriptions=columns)
+    with pytest.raises(ValueError, match="Column 1 belongs to field 5, of 1 fields"):
+        broken.field_columns()
+
+
 def test_field_columns_with_a_missing_representation_raise():
     rntuple = _load(data_path(EXTENSION_COLUMNS))
     extension = rntuple.footerEnvelope.schemaExtension.columnDescriptions.items
