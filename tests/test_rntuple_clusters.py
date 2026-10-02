@@ -59,7 +59,7 @@ def test_suppressed_columns_keep_their_position():
     cluster = rntuple.clusters()[1]
     assert cluster.columns[1].columnDescription.fColumnType == ColumnType.kReal16
     (page,) = cluster.columns[1].pages
-    assert page.firstElementIndex == 1
+    assert page.firstElementInCluster == 0
     suppressed = rntuple.pagelistEnvelopes[0].pageLocations[1][0]
     assert suppressed.elementoffset < 0
     assert cluster.columns[0].pageLocations is suppressed
@@ -77,10 +77,13 @@ def test_cluster_ids_continue_across_cluster_groups():
         *(450, 500, 600, 700),
         *(750, 800, 900),
     ]
-    # Column 2 has two elements per entry
-    assert [cluster.columns[2].pages[0].firstElementIndex for cluster in clusters] == [
+    # Column 2 has two elements per entry; its pages count from its cluster's start
+    assert [cluster.columns[2].firstElementIndex for cluster in clusters] == [
         2 * cluster.summary.fFirstEntryNumber for cluster in clusters
     ]
+    assert {
+        cluster.columns[2].pages[0].firstElementInCluster for cluster in clusters
+    } == {0}
 
 
 @pytest.mark.skipif(not DATA.exists(), reason="reference/root-io-spec not checked out")
@@ -224,8 +227,14 @@ def test_columns_added_by_model_extension():
         True,
         True,
     ]
-    # float_field's one page in cluster 0 starts after its 200 zeros
-    assert [page.firstElementIndex for page in first.columns[1].pages] == [200]
+    # A first stored page starts after the zeros: float_field's at element 200 of
+    # cluster 0, and intvec_field's at element 50 of cluster 1, element 400 of
+    # the column
+    assert [page.firstElementInCluster for page in first.columns[1].pages] == [200]
+    column = rntuple.clusters()[1].columns[2]
+    (page,) = column.pages
+    assert page.firstElementInCluster == 50
+    assert column.firstElementIndex + page.firstElementInCluster == 400
 
 
 @pytest.mark.parametrize(
@@ -264,11 +273,11 @@ def test_every_column_is_complete(path: Path | str):
                 assert column.pages == []
                 assert column.nZeroElements == 0
             else:
-                start = column.firstElementIndex + column.nZeroElements
+                start = column.nZeroElements
                 for page in column.pages:
-                    assert page.firstElementIndex == start
+                    assert page.firstElementInCluster == start
                     start += page.pageDescription.n_elements
-                assert start == column.firstElementIndex + column.nElements
+                assert start == column.nElements
             assert column.firstElementIndex == nextElement[column.columnID]
             nextElement[column.columnID] += column.nElements
 

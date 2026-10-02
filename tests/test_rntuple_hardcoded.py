@@ -349,7 +349,7 @@ def test_read_contributors():
                             fNElements=-22,
                             locator=StandardLocator(size=176, offset=620),
                         ),
-                        firstElementIndex=0,
+                        firstElementInCluster=0,
                         uncompressedSize=176,
                     )
                 ],
@@ -359,7 +359,7 @@ def test_read_contributors():
                             fNElements=-178,
                             locator=StandardLocator(size=178, offset=804),
                         ),
-                        firstElementIndex=0,
+                        firstElementInCluster=0,
                         uncompressedSize=178,
                     )
                 ],
@@ -369,7 +369,7 @@ def test_read_contributors():
                             fNElements=-22,
                             locator=StandardLocator(size=176, offset=990),
                         ),
-                        firstElementIndex=0,
+                        firstElementInCluster=0,
                         uncompressedSize=176,
                     )
                 ],
@@ -379,7 +379,7 @@ def test_read_contributors():
                             fNElements=-193,
                             locator=StandardLocator(size=193, offset=1174),
                         ),
-                        firstElementIndex=0,
+                        firstElementInCluster=0,
                         uncompressedSize=193,
                     )
                 ],
@@ -606,7 +606,7 @@ def test_read_multiple_rntuples():
                             fNElements=-100,
                             locator=StandardLocator(size=138, offset=409),
                         ),
-                        firstElementIndex=0,
+                        firstElementInCluster=0,
                         uncompressedSize=400,
                     )
                 ]
@@ -803,7 +803,7 @@ def test_read_multiple_rntuples():
                             fNElements=-100,
                             locator=StandardLocator(size=164, offset=1695),
                         ),
-                        firstElementIndex=0,
+                        firstElementInCluster=0,
                         uncompressedSize=400,
                     )
                 ]

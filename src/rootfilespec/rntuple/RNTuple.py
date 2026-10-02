@@ -152,14 +152,18 @@ class InterpretablePage:
     """One page of a column in a cluster
 
     Like ROOT's ``RClusterDescriptor::RPageInfoExtended``: the page as stored,
-    and where its elements are in the column.
+    and where its elements start in the cluster.
     """
 
     pageDescription: RPageDescription
     """The page's entry in the page list, as stored: its locator, its number of
     elements and whether a checksum follows it."""
-    firstElementIndex: int
-    """The index, within the column, of the page's first element."""
+    firstElementInCluster: int
+    """The index of the page's first element among the column's elements in the
+    cluster, as ROOT counts it.
+
+    It belongs to the cluster (see ``InterpretableCluster``); the index within
+    the column is ``InterpretableColumn.firstElementIndex`` plus this."""
     uncompressedSize: int
     """The size of the page's elements packed for storage, before compression, in bytes."""
 
@@ -218,7 +222,12 @@ class InterpretableColumn:
 class InterpretableCluster:
     """One cluster: its entries, and every column's elements and pages in it
 
-    Like ROOT's ``RClusterDescriptor``.
+    Like ROOT's ``RClusterDescriptor``. ``clusterID``,
+    ``summary.fFirstEntryNumber`` and each column's ``firstElementIndex`` are
+    positions in this RNTuple. Everything else belongs to the cluster, which can
+    be reused unchanged in another RNTuple: offset columns count from the start
+    of the cluster (spec, *Column Description* and *Stdlib Types and
+    Collections*).
     """
 
     clusterID: int
@@ -536,12 +545,12 @@ class _Columns:
             elif not suppressed[columnID]:
                 nZeroElements = nElements
             pages: list[InterpretablePage] = []
-            nextElement = firstElementIndex + nZeroElements
+            nextElement = nZeroElements
             for description in descriptions:
                 pages.append(
                     InterpretablePage(
                         pageDescription=description,
-                        firstElementIndex=nextElement,
+                        firstElementInCluster=nextElement,
                         uncompressedSize=ceil(
                             description.n_elements
                             * column.description.fBitsOnStorage
